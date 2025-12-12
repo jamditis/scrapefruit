@@ -98,3 +98,59 @@ def fetch_html():
             "success": False,
             "error": str(e),
         }), 500
+
+
+@scraping_bp.route("/analyze-html", methods=["POST"])
+def analyze_html():
+    """Analyze uploaded HTML samples and suggest extraction rules."""
+    from core.scraping.analyzer import HTMLAnalyzer
+
+    html_samples = []
+
+    # Accept multipart/form-data with HTML files
+    if request.files:
+        files = request.files.getlist("samples")
+        for f in files:
+            try:
+                content = f.read().decode("utf-8")
+                if content.strip():
+                    html_samples.append(content)
+            except Exception:
+                # Try latin-1 as fallback
+                try:
+                    f.seek(0)
+                    content = f.read().decode("latin-1")
+                    if content.strip():
+                        html_samples.append(content)
+                except Exception:
+                    pass
+
+    # Also accept JSON body with html_samples array
+    if not html_samples and request.is_json:
+        data = request.get_json()
+        html_samples = data.get("html_samples", [])
+
+    if not html_samples:
+        return jsonify({
+            "error": "No HTML samples provided. Upload files or send html_samples array.",
+        }), 400
+
+    if len(html_samples) > 10:
+        return jsonify({
+            "error": "Maximum 10 samples allowed.",
+        }), 400
+
+    try:
+        analyzer = HTMLAnalyzer()
+        suggestions = analyzer.analyze_multiple(html_samples)
+
+        return jsonify({
+            "success": True,
+            "suggestions": [s.to_dict() for s in suggestions],
+            "sample_count": len(html_samples),
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+        }), 500

@@ -43,6 +43,7 @@ const App = {
         JobManager.init();
         RulesEditor.init();
         ResultsView.init();
+        SampleAnalyzer.init();
         this.initSettings();
     },
 

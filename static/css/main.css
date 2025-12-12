@@ -1266,3 +1266,216 @@ input[type="checkbox"] {
     color: var(--color-success);
     margin-left: 4px;
 }
+
+/* ============================================
+   Sample Analyzer & Upload Zone
+   ============================================ */
+.sample-analyzer-section {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+}
+
+.sample-upload-zone {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--color-bg-card);
+}
+
+.sample-upload-zone:hover,
+.sample-upload-zone.dragover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-muted);
+}
+
+.upload-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-muted);
+}
+
+.upload-icon {
+    font-size: 32px;
+    opacity: 0.7;
+}
+
+.upload-files {
+    margin-top: var(--spacing-md);
+}
+
+.upload-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: 12px;
+}
+
+.upload-file-item:last-child {
+    margin-bottom: 0;
+}
+
+.upload-file-item .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.upload-file-item .file-size {
+    color: var(--color-text-dim);
+    font-size: 11px;
+}
+
+.upload-file-item .file-remove {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.upload-file-item .file-remove:hover {
+    color: var(--color-error);
+}
+
+/* ============================================
+   Suggestions Modal
+   ============================================ */
+.modal-content.modal-lg {
+    max-width: 700px;
+}
+
+.suggestions-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.suggestion-category {
+    margin-bottom: var(--spacing-lg);
+}
+
+.suggestion-category:last-child {
+    margin-bottom: 0;
+}
+
+.suggestion-category h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-dim);
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.suggestion-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.suggestion-item:hover {
+    border-color: var(--color-primary);
+    background: var(--color-bg-hover);
+}
+
+.suggestion-item:last-child {
+    margin-bottom: 0;
+}
+
+.suggestion-item input[type="checkbox"] {
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.suggestion-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.suggestion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xs);
+}
+
+.suggestion-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.suggestion-confidence {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.suggestion-confidence.high {
+    background: var(--color-success);
+    color: #000;
+}
+
+.suggestion-confidence.medium {
+    background: var(--color-warning);
+    color: #000;
+}
+
+.suggestion-confidence.low {
+    background: var(--color-bg-hover);
+    color: var(--color-text-muted);
+}
+
+.suggestion-selector {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-info);
+    margin-bottom: var(--spacing-xs);
+    word-break: break-all;
+}
+
+.suggestion-preview {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.suggestion-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.suggestion-badges .badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-dim);
+}

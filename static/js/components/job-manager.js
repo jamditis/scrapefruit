@@ -188,6 +188,24 @@ const JobManager = {
                     </div>
                 </div>
 
+                <div class="detail-section sample-analyzer-section">
+                    <h3>Quick setup from samples</h3>
+                    <p style="color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
+                        Upload 1-10 HTML sample files to auto-detect extraction patterns
+                    </p>
+                    <div class="sample-upload-zone" id="sample-upload-zone">
+                        <input type="file" id="sample-files" multiple accept=".html,.htm" hidden>
+                        <div class="upload-prompt">
+                            <span class="upload-icon">📄</span>
+                            <span>Drop HTML files here or click to browse</span>
+                        </div>
+                        <div class="upload-files" id="upload-files-list"></div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-analyze-samples" disabled style="margin-top: var(--spacing-md);">
+                        Analyze samples
+                    </button>
+                </div>
+
                 <div class="detail-section">
                     <h3>URLs (${urls.length})</h3>
                     <div class="urls-preview">
@@ -209,6 +227,11 @@ const JobManager = {
 
             // Bind action buttons
             this.bindDetailActions(job);
+
+            // Initialize sample analyzer
+            if (typeof SampleAnalyzer !== 'undefined') {
+                SampleAnalyzer.bindEvents();
+            }
 
             // Initialize activity log
             if (typeof ActivityLog !== 'undefined') {

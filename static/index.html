@@ -335,12 +335,34 @@
         </div>
     </div>
 
+    <!-- Suggestions Modal -->
+    <div class="modal" id="modal-suggestions">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Suggested extraction rules</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Select the fields you want to extract. Rules are auto-detected from your HTML samples.</p>
+                <div class="suggestions-list" id="suggestions-list">
+                    <!-- Generated checkboxes with previews -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="btn-add-selected-rules">Add selected rules</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/api.js"></script>
     <script src="/static/js/state.js"></script>
     <script src="/static/js/components/job-manager.js"></script>
     <script src="/static/js/components/rules-editor.js"></script>
     <script src="/static/js/components/results-view.js"></script>
     <script src="/static/js/components/activity-log.js"></script>
+    <script src="/static/js/components/sample-analyzer.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>
