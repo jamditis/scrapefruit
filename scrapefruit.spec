@@ -16,8 +16,8 @@ a = Analysis(
     datas=[
         # Include static files (HTML, CSS, JS)
         ('static', 'static'),
-        # Include database folder structure
-        ('data', 'data'),
+        # Include playwright_stealth JS files
+        ('venv/Lib/site-packages/playwright_stealth/js', 'playwright_stealth/js'),
     ],
     hiddenimports=[
         'webview',
