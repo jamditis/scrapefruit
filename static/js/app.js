@@ -7,10 +7,41 @@ const App = {
     POLL_RATE: 2000, // 2 seconds
 
     init() {
+        this.loadTheme();
         this.setupNavigation();
         this.initComponents();
         this.loadSettings();
         this.startPolling();
+    },
+
+    // Theme management
+    loadTheme() {
+        const savedTheme = localStorage.getItem('scrapefruit-theme') || 'citrus-dark';
+        this.applyTheme(savedTheme);
+    },
+
+    applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        const themeSelect = document.getElementById('setting-theme');
+        if (themeSelect) {
+            themeSelect.value = theme;
+        }
+    },
+
+    initThemeSelector() {
+        const themeSelect = document.getElementById('setting-theme');
+        if (themeSelect) {
+            // Set current theme
+            const savedTheme = localStorage.getItem('scrapefruit-theme') || 'citrus-dark';
+            themeSelect.value = savedTheme;
+
+            // Listen for changes
+            themeSelect.addEventListener('change', (e) => {
+                const theme = e.target.value;
+                this.applyTheme(theme);
+                localStorage.setItem('scrapefruit-theme', theme);
+            });
+        }
     },
 
     setupNavigation() {
@@ -44,10 +75,14 @@ const App = {
         RulesEditor.init();
         ResultsView.init();
         SampleAnalyzer.init();
+        DataView.init();
         this.initSettings();
     },
 
     initSettings() {
+        // Theme selector
+        this.initThemeSelector();
+
         // Save settings button
         document.getElementById('btn-save-settings').addEventListener('click', async () => {
             await this.saveSettings();

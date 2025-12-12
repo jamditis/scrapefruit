@@ -173,6 +173,23 @@ const API = {
     async resetSettings() {
         return this.request('POST', '/api/settings/defaults');
     },
+
+    // Database
+    async listTables() {
+        return this.request('GET', '/api/database/tables');
+    },
+
+    async getTableSchema(tableName) {
+        return this.request('GET', `/api/database/tables/${tableName}/schema`);
+    },
+
+    async getTableRows(tableName, limit = 50, offset = 0) {
+        return this.request('GET', `/api/database/tables/${tableName}/rows?limit=${limit}&offset=${offset}`);
+    },
+
+    async executeQuery(sql) {
+        return this.request('POST', '/api/database/query', { sql });
+    },
 };
 
 // Export for use

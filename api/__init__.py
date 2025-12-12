@@ -32,11 +32,13 @@ def create_app():
     from api.routes.scraping import scraping_bp
     from api.routes.export import export_bp
     from api.routes.settings import settings_bp
+    from api.routes.database import database_bp
 
     app.register_blueprint(jobs_bp, url_prefix="/api/jobs")
     app.register_blueprint(scraping_bp, url_prefix="/api/scraping")
     app.register_blueprint(export_bp, url_prefix="/api/export")
     app.register_blueprint(settings_bp, url_prefix="/api/settings")
+    app.register_blueprint(database_bp, url_prefix="/api/database")
 
     # Root route serves the frontend
     @app.route("/")

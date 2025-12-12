@@ -41,6 +41,14 @@
                     </svg>
                     <span>Settings</span>
                 </button>
+                <button class="nav-item" data-view="data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                    <span>Data</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -126,6 +134,28 @@
                 </header>
 
                 <div class="settings-container">
+                    <section class="settings-section">
+                        <h2>Appearance</h2>
+                        <p class="section-desc">Customize the look and feel of Scrapefruit.</p>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label for="setting-theme">
+                                    Theme
+                                    <span class="tooltip" data-tip="Choose a color scheme that suits your preference. Changes apply instantly.">?</span>
+                                </label>
+                                <select id="setting-theme" class="select">
+                                    <option value="citrus-dark">Citrus dark</option>
+                                    <option value="midnight">Midnight blue</option>
+                                    <option value="forest">Forest</option>
+                                    <option value="rose">Rosé</option>
+                                    <option value="light">Light</option>
+                                    <option value="high-contrast">High contrast</option>
+                                </select>
+                                <span class="setting-help">Changes are applied immediately</span>
+                            </div>
+                        </div>
+                    </section>
+
                     <section class="settings-section">
                         <h2>Scraping behavior</h2>
                         <p class="section-desc">Control how the scraper fetches pages and handles failures.</p>
@@ -219,6 +249,66 @@
                         <button class="btn btn-primary" id="btn-save-settings">Save settings</button>
                         <button class="btn btn-ghost" id="btn-reset-settings">Reset to defaults</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Data view -->
+            <div class="view" id="view-data">
+                <header class="view-header">
+                    <h1>Data</h1>
+                    <div class="view-actions">
+                        <button class="btn btn-ghost" id="btn-refresh-data" title="Refresh data">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                            </svg>
+                        </button>
+                    </div>
+                </header>
+
+                <div class="data-container">
+                    <!-- Table browser section -->
+                    <section class="data-section">
+                        <div class="data-toolbar">
+                            <label for="data-table-select">Table:</label>
+                            <select id="data-table-select" class="select">
+                                <option value="">Loading...</option>
+                            </select>
+                            <span class="data-row-count" id="data-row-count"></span>
+                        </div>
+
+                        <div class="data-schema" id="data-schema">
+                            <span class="schema-label">Schema:</span>
+                            <span class="schema-columns" id="schema-columns">Select a table</span>
+                        </div>
+
+                        <div class="data-table-wrapper">
+                            <table class="data-table" id="data-table">
+                                <thead id="data-table-head"></thead>
+                                <tbody id="data-table-body"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="data-pagination" id="data-pagination">
+                            <button class="btn btn-ghost btn-sm" id="btn-prev-page" disabled>&lt; Prev</button>
+                            <span class="pagination-info" id="pagination-info">Page 1</span>
+                            <button class="btn btn-ghost btn-sm" id="btn-next-page" disabled>Next &gt;</button>
+                        </div>
+                    </section>
+
+                    <!-- SQL console section -->
+                    <section class="data-section sql-section">
+                        <h3>SQL console</h3>
+                        <p class="section-desc">Run SELECT queries directly against the database.</p>
+                        <textarea id="sql-input" class="sql-input" rows="4" placeholder="SELECT * FROM jobs LIMIT 10"></textarea>
+                        <div class="sql-actions">
+                            <button class="btn btn-primary" id="btn-execute-sql">Execute</button>
+                            <span class="sql-status" id="sql-status"></span>
+                        </div>
+                        <div class="sql-results" id="sql-results">
+                            <div class="sql-results-empty">Run a query to see results</div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </main>
@@ -363,6 +453,7 @@
     <script src="/static/js/components/results-view.js"></script>
     <script src="/static/js/components/activity-log.js"></script>
     <script src="/static/js/components/sample-analyzer.js"></script>
+    <script src="/static/js/components/data-view.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

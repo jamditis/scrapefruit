@@ -223,7 +223,27 @@ const JobManager = {
                     <h3>Activity log</h3>
                     <div id="activity-log-container"></div>
                 </div>
+
+                <div class="detail-section raw-data-section">
+                    <div class="raw-data-header" id="raw-data-toggle">
+                        <h3>Raw data</h3>
+                        <span class="raw-data-toggle-icon">+</span>
+                    </div>
+                    <div class="raw-data-content" id="raw-data-content" style="display: none;">
+                        <div class="raw-data-tabs">
+                            <button class="raw-data-tab active" data-tab="job">Job</button>
+                            <button class="raw-data-tab" data-tab="urls">URLs (${urls.length})</button>
+                            <button class="raw-data-tab" data-tab="results">Results</button>
+                        </div>
+                        <div class="raw-data-panel" id="raw-data-panel">
+                            <pre class="raw-data-json">${JSON.stringify(job, null, 2)}</pre>
+                        </div>
+                    </div>
+                </div>
             `;
+
+            // Store data for raw data inspector
+            this._rawData = { job, urls, rules };
 
             // Bind action buttons
             this.bindDetailActions(job);
@@ -337,6 +357,57 @@ const JobManager = {
                 await this.deleteRule(job.id, btn.dataset.ruleId);
             });
         });
+
+        // Raw data toggle
+        const rawDataToggle = detail.querySelector('#raw-data-toggle');
+        const rawDataContent = detail.querySelector('#raw-data-content');
+        const toggleIcon = detail.querySelector('.raw-data-toggle-icon');
+
+        if (rawDataToggle && rawDataContent) {
+            rawDataToggle.addEventListener('click', () => {
+                const isHidden = rawDataContent.style.display === 'none';
+                rawDataContent.style.display = isHidden ? 'block' : 'none';
+                toggleIcon.textContent = isHidden ? '−' : '+';
+            });
+        }
+
+        // Raw data tabs
+        detail.querySelectorAll('.raw-data-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                detail.querySelectorAll('.raw-data-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.showRawDataTab(tab.dataset.tab, job.id);
+            });
+        });
+    },
+
+    async showRawDataTab(tabName, jobId) {
+        const panel = document.getElementById('raw-data-panel');
+        if (!panel) return;
+
+        panel.innerHTML = '<div class="raw-data-loading">Loading...</div>';
+
+        try {
+            let data;
+            switch (tabName) {
+                case 'job':
+                    data = this._rawData?.job || {};
+                    break;
+                case 'urls':
+                    data = this._rawData?.urls || [];
+                    break;
+                case 'results':
+                    const results = await API.listResults(jobId, 100, 0);
+                    data = results.results || [];
+                    break;
+                default:
+                    data = {};
+            }
+
+            panel.innerHTML = `<pre class="raw-data-json">${JSON.stringify(data, null, 2)}</pre>`;
+        } catch (error) {
+            panel.innerHTML = `<div class="raw-data-error">Error loading data: ${error.message}</div>`;
+        }
     },
 
     async handleJobAction(jobId, action) {

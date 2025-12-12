@@ -2,10 +2,17 @@
 
 from flask import Blueprint, request, jsonify
 
-from core.scraping.engine import ScrapingEngine
-
 scraping_bp = Blueprint("scraping", __name__)
-engine = ScrapingEngine()
+
+# Lazy-load engine to prevent import errors from breaking the blueprint
+_engine = None
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        from core.scraping.engine import ScrapingEngine
+        _engine = ScrapingEngine()
+    return _engine
 
 
 @scraping_bp.route("/preview", methods=["POST"])
@@ -19,7 +26,7 @@ def preview_scrape():
         return jsonify({"error": "URL is required"}), 400
 
     try:
-        result = engine.scrape_url(url, rules)
+        result = get_engine().scrape_url(url, rules)
         return jsonify({
             "success": True,
             "url": url,
@@ -52,7 +59,7 @@ def test_selector():
         from core.scraping.extractors.xpath_extractor import XPathExtractor
 
         # Fetch the page
-        html_result = engine.fetch_page(url)
+        html_result = get_engine().fetch_page(url)
         html = html_result.get("html", "")
 
         # Test extraction
@@ -86,7 +93,7 @@ def fetch_html():
         return jsonify({"error": "URL is required"}), 400
 
     try:
-        result = engine.fetch_page(url, force_playwright=use_playwright)
+        result = get_engine().fetch_page(url, force_playwright=use_playwright)
         return jsonify({
             "success": True,
             "html": result.get("html", ""),
@@ -103,7 +110,14 @@ def fetch_html():
 @scraping_bp.route("/analyze-html", methods=["POST"])
 def analyze_html():
     """Analyze uploaded HTML samples and suggest extraction rules."""
-    from core.scraping.analyzer import HTMLAnalyzer
+    import traceback
+
+    try:
+        from core.scraping.analyzer import HTMLAnalyzer
+    except ImportError as e:
+        print(f"Import error in analyze_html: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": f"Import error: {e}"}), 500
 
     html_samples = []
 
@@ -150,6 +164,8 @@ def analyze_html():
             "sample_count": len(html_samples),
         })
     except Exception as e:
+        print(f"Analysis error: {e}")
+        traceback.print_exc()
         return jsonify({
             "success": False,
             "error": str(e),
