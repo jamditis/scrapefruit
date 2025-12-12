@@ -3,58 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scrapefruit</title>
+    <title>SCRAPEFRUIT // SYS</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    <!-- CRT scanline overlay -->
+    <div class="crt-overlay"></div>
+    <!-- Grid pattern background -->
+    <div class="grid-pattern"></div>
     <div class="app">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <span class="logo-icon">🍊</span>
-                    <span class="logo-text">Scrapefruit</span>
+                    <div class="logo-icon">
+                        <i data-lucide="citrus"></i>
+                    </div>
+                    <div class="logo-text-group">
+                        <span class="logo-text">SCRAPEFRUIT</span>
+                        <span class="logo-version">SYS_v4.2</span>
+                    </div>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-view="jobs">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                    </svg>
-                    <span>Jobs</span>
+                    <i data-lucide="clipboard-list"></i>
+                    <span>JOBS</span>
                 </button>
                 <button class="nav-item" data-view="results">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z"/>
-                        <path d="M8 12h8M8 16h5"/>
-                    </svg>
-                    <span>Results</span>
+                    <i data-lucide="table"></i>
+                    <span>RESULTS</span>
                 </button>
                 <button class="nav-item" data-view="settings">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
-                    </svg>
-                    <span>Settings</span>
+                    <i data-lucide="settings"></i>
+                    <span>SETTINGS</span>
                 </button>
                 <button class="nav-item" data-view="data">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                    </svg>
-                    <span>Data</span>
+                    <i data-lucide="database"></i>
+                    <span>DATA</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
                 <div class="status-indicator" id="status-indicator">
                     <span class="status-dot"></span>
-                    <span class="status-text">Ready</span>
+                    <span class="status-text">SYSTEM READY</span>
                 </div>
             </div>
         </aside>
@@ -64,20 +62,17 @@
             <!-- Jobs view -->
             <div class="view active" id="view-jobs">
                 <header class="view-header">
-                    <h1>Jobs</h1>
+                    <div class="view-header-title">
+                        <h1 class="glitch-text" data-text="ACTIVE_TASKS">ACTIVE_TASKS</h1>
+                        <span class="view-header-sub">// Job_Management_Console</span>
+                    </div>
                     <div class="view-actions">
                         <button class="btn btn-ghost" id="btn-refresh-jobs" title="Refresh jobs list">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M23 4v6h-6M1 20v-6h6"/>
-                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-                            </svg>
+                            <i data-lucide="refresh-cw"></i>
                         </button>
                         <button class="btn btn-primary" id="btn-new-job">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"/>
-                                <line x1="5" y1="12" x2="19" y2="12"/>
-                            </svg>
-                            New job
+                            <i data-lucide="plus"></i>
+                            NEW_TASK
                         </button>
                     </div>
                 </header>
@@ -104,19 +99,19 @@
             <!-- Results view -->
             <div class="view" id="view-results">
                 <header class="view-header">
-                    <h1>Results</h1>
+                    <div class="view-header-title">
+                        <h1 class="glitch-text" data-text="DATA_MATRIX">DATA_MATRIX</h1>
+                        <span class="view-header-sub">// Extraction_Results</span>
+                    </div>
                     <div class="view-actions">
                         <select id="results-job-select" class="select">
                             <option value="">Select a job...</option>
                         </select>
                         <button class="btn btn-ghost" id="btn-refresh-results" title="Refresh results">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M23 4v6h-6M1 20v-6h6"/>
-                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-                            </svg>
+                            <i data-lucide="refresh-cw"></i>
                         </button>
-                        <button class="btn btn-secondary" id="btn-export-json">Export JSON</button>
-                        <button class="btn btn-secondary" id="btn-export-csv">Export CSV</button>
+                        <button class="btn btn-secondary" id="btn-export-json">EXP_JSON</button>
+                        <button class="btn btn-secondary" id="btn-export-csv">EXP_CSV</button>
                     </div>
                 </header>
 
@@ -130,7 +125,10 @@
             <!-- Settings view -->
             <div class="view" id="view-settings">
                 <header class="view-header">
-                    <h1>Settings</h1>
+                    <div class="view-header-title">
+                        <h1 class="glitch-text" data-text="CONFIGURATION">CONFIGURATION</h1>
+                        <span class="view-header-sub">// System_Parameters</span>
+                    </div>
                 </header>
 
                 <div class="settings-container">
@@ -255,13 +253,13 @@
             <!-- Data view -->
             <div class="view" id="view-data">
                 <header class="view-header">
-                    <h1>Data</h1>
+                    <div class="view-header-title">
+                        <h1 class="glitch-text" data-text="DATABASE">DATABASE</h1>
+                        <span class="view-header-sub">// Raw_Data_Inspector</span>
+                    </div>
                     <div class="view-actions">
                         <button class="btn btn-ghost" id="btn-refresh-data" title="Refresh data">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M23 4v6h-6M1 20v-6h6"/>
-                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-                            </svg>
+                            <i data-lucide="refresh-cw"></i>
                         </button>
                     </div>
                 </header>
@@ -455,5 +453,15 @@
     <script src="/static/js/components/sample-analyzer.js"></script>
     <script src="/static/js/components/data-view.js"></script>
     <script src="/static/js/app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Re-initialize icons when DOM changes (for dynamically added content)
+        const iconObserver = new MutationObserver(() => {
+            lucide.createIcons();
+        });
+        iconObserver.observe(document.body, { childList: true, subtree: true });
+    </script>
 </body>
 </html>
