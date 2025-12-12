@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrapefruit</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">🍊</span>
+                    <span class="logo-text">Scrapefruit</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="jobs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <span>Jobs</span>
+                </button>
+                <button class="nav-item" data-view="results">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z"/>
+                        <path d="M8 12h8M8 16h5"/>
+                    </svg>
+                    <span>Results</span>
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Ready</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="main">
+            <!-- Jobs view -->
+            <div class="view active" id="view-jobs">
+                <header class="view-header">
+                    <h1>Jobs</h1>
+                    <div class="view-actions">
+                        <button class="btn btn-ghost" id="btn-refresh-jobs" title="Refresh jobs list">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                            </svg>
+                        </button>
+                        <button class="btn btn-primary" id="btn-new-job">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            New job
+                        </button>
+                    </div>
+                </header>
+
+                <div class="jobs-container">
+                    <div class="jobs-list" id="jobs-list">
+                        <!-- Jobs will be rendered here -->
+                        <div class="empty-state" id="jobs-empty">
+                            <div class="empty-icon">📋</div>
+                            <h3>No jobs yet</h3>
+                            <p>Create your first scraping job to get started</p>
+                        </div>
+                    </div>
+
+                    <div class="job-detail" id="job-detail">
+                        <!-- Job details panel -->
+                        <div class="detail-placeholder">
+                            <p>Select a job to view details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results view -->
+            <div class="view" id="view-results">
+                <header class="view-header">
+                    <h1>Results</h1>
+                    <div class="view-actions">
+                        <select id="results-job-select" class="select">
+                            <option value="">Select a job...</option>
+                        </select>
+                        <button class="btn btn-ghost" id="btn-refresh-results" title="Refresh results">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                            </svg>
+                        </button>
+                        <button class="btn btn-secondary" id="btn-export-json">Export JSON</button>
+                        <button class="btn btn-secondary" id="btn-export-csv">Export CSV</button>
+                    </div>
+                </header>
+
+                <div class="results-container" id="results-container">
+                    <div class="results-empty">
+                        <p>Select a job to view results</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings view -->
+            <div class="view" id="view-settings">
+                <header class="view-header">
+                    <h1>Settings</h1>
+                </header>
+
+                <div class="settings-container">
+                    <section class="settings-section">
+                        <h2>Scraping behavior</h2>
+                        <p class="section-desc">Control how the scraper fetches pages and handles failures.</p>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label for="setting-timeout">
+                                    Request timeout (ms)
+                                    <span class="tooltip" data-tip="How long to wait for a page to load before giving up. Increase for slow sites.">?</span>
+                                </label>
+                                <input type="number" id="setting-timeout" class="input" value="30000">
+                                <span class="setting-help">30000 = 30 seconds</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="setting-retries">
+                                    Retry count
+                                    <span class="tooltip" data-tip="Number of times to retry a failed request before marking it as failed.">?</span>
+                                </label>
+                                <input type="number" id="setting-retries" class="input" value="3">
+                                <span class="setting-help">Retries on timeout or error</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="setting-delay-min">
+                                    Minimum delay (ms)
+                                    <span class="tooltip" data-tip="Shortest wait time between requests. Helps avoid rate limits.">?</span>
+                                </label>
+                                <input type="number" id="setting-delay-min" class="input" value="1000">
+                                <span class="setting-help">1000 = 1 second</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="setting-delay-max">
+                                    Maximum delay (ms)
+                                    <span class="tooltip" data-tip="Longest wait time between requests. Random delay between min/max looks more human.">?</span>
+                                </label>
+                                <input type="number" id="setting-delay-max" class="input" value="3000">
+                                <span class="setting-help">3000 = 3 seconds</span>
+                            </div>
+                            <div class="setting-item setting-toggle">
+                                <label for="setting-stealth">
+                                    Use stealth mode
+                                    <span class="tooltip" data-tip="Disguises the browser to avoid bot detection. Uses Playwright with anti-fingerprinting.">?</span>
+                                </label>
+                                <input type="checkbox" id="setting-stealth" checked>
+                                <span class="setting-help">Helps bypass anti-bot measures</span>
+                            </div>
+                            <div class="setting-item setting-toggle">
+                                <label for="setting-rotate-ua">
+                                    Rotate user agents
+                                    <span class="tooltip" data-tip="Use different browser identities for each request to look like different users.">?</span>
+                                </label>
+                                <input type="checkbox" id="setting-rotate-ua" checked>
+                                <span class="setting-help">Changes browser identity per request</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="settings-section">
+                        <h2>Default output</h2>
+                        <p class="section-desc">Configure default export format and auto-save behavior.</p>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label for="setting-output-format">
+                                    Default format
+                                    <span class="tooltip" data-tip="File format for exported results. JSON preserves structure, CSV works in spreadsheets.">?</span>
+                                </label>
+                                <select id="setting-output-format" class="select">
+                                    <option value="json">JSON</option>
+                                    <option value="csv">CSV</option>
+                                </select>
+                                <span class="setting-help">Format for downloaded results</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="setting-output-dir">
+                                    Auto-save directory
+                                    <span class="tooltip" data-tip="Folder where results are automatically saved when a job completes. Leave empty to disable.">?</span>
+                                </label>
+                                <input type="text" id="setting-output-dir" class="input" placeholder="Leave empty to disable">
+                                <span class="setting-help">Optional: auto-export on completion</span>
+                            </div>
+                            <div class="setting-item setting-toggle">
+                                <label for="setting-auto-export">
+                                    Auto-export on complete
+                                    <span class="tooltip" data-tip="Automatically save results when a job finishes. Requires a save directory.">?</span>
+                                </label>
+                                <input type="checkbox" id="setting-auto-export">
+                                <span class="setting-help">Save results automatically</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="settings-actions">
+                        <button class="btn btn-primary" id="btn-save-settings">Save settings</button>
+                        <button class="btn btn-ghost" id="btn-reset-settings">Reset to defaults</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Job Modal -->
+    <div class="modal" id="modal-new-job">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create new job</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="job-name">
+                        Job name
+                        <span class="tooltip" data-tip="A descriptive name to identify this scraping job.">?</span>
+                    </label>
+                    <input type="text" id="job-name" class="input" placeholder="My scraping job">
+                </div>
+                <div class="form-group">
+                    <label for="job-mode">
+                        Mode
+                        <span class="tooltip" data-tip="URL list: scrape specific pages. Single: one page. Crawl: discover pages automatically.">?</span>
+                    </label>
+                    <select id="job-mode" class="select">
+                        <option value="list">URL list - Scrape a list of specific URLs</option>
+                        <option value="single">Single URL - Scrape one page</option>
+                        <option value="crawl">Crawl - Find and scrape pages (coming soon)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="job-urls">
+                        URLs (one per line)
+                        <span class="tooltip" data-tip="Paste your target URLs here, one URL per line. Must start with http:// or https://.">?</span>
+                    </label>
+                    <textarea id="job-urls" class="textarea" rows="8" placeholder="https://example.com/page1&#10;https://example.com/page2"></textarea>
+                    <span class="setting-help">Tip: You can paste from a spreadsheet column</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="btn-create-job">Create job</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Rule Modal -->
+    <div class="modal" id="modal-add-rule">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add extraction rule</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Define what data to extract from each page. Use browser DevTools to find selectors.</p>
+                <div class="form-group">
+                    <label for="rule-name">
+                        Field name
+                        <span class="tooltip" data-tip="The name for this data in your results, like 'title' or 'price'. Use lowercase with no spaces.">?</span>
+                    </label>
+                    <input type="text" id="rule-name" class="input" placeholder="title">
+                    <span class="setting-help">Example: title, price, description</span>
+                </div>
+                <div class="form-group">
+                    <label for="rule-type">
+                        Selector type
+                        <span class="tooltip" data-tip="CSS selectors are easier (like 'h1.title'). XPath is more powerful for complex cases.">?</span>
+                    </label>
+                    <select id="rule-type" class="select">
+                        <option value="css">CSS selector (recommended)</option>
+                        <option value="xpath">XPath (advanced)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rule-selector">
+                        Selector
+                        <span class="tooltip" data-tip="The pattern to find elements. CSS example: 'h1.title' or 'div.price span'. Right-click elements in DevTools to copy selectors.">?</span>
+                    </label>
+                    <input type="text" id="rule-selector" class="input" placeholder="h1.title or .product-price">
+                    <span class="setting-help">Tip: Right-click element in DevTools > Copy > Copy selector</span>
+                </div>
+                <div class="form-group">
+                    <label for="rule-attribute">
+                        Attribute (optional)
+                        <span class="tooltip" data-tip="Leave empty to get text content. Use 'href' for links, 'src' for images, 'title' for tooltips.">?</span>
+                    </label>
+                    <input type="text" id="rule-attribute" class="input" placeholder="href, src, title, etc.">
+                    <span class="setting-help">Leave empty to get text content</span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group form-check">
+                        <input type="checkbox" id="rule-required">
+                        <label for="rule-required">
+                            Required
+                            <span class="tooltip" data-tip="If checked, pages without this field will be marked as failed.">?</span>
+                        </label>
+                    </div>
+                    <div class="form-group form-check">
+                        <input type="checkbox" id="rule-list">
+                        <label for="rule-list">
+                            Extract all matches
+                            <span class="tooltip" data-tip="Get all matching elements as a list, instead of just the first one.">?</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="btn-save-rule">Add rule</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/state.js"></script>
+    <script src="/static/js/components/job-manager.js"></script>
+    <script src="/static/js/components/rules-editor.js"></script>
+    <script src="/static/js/components/results-view.js"></script>
+    <script src="/static/js/components/activity-log.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
