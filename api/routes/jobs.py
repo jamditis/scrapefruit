@@ -45,17 +45,16 @@ def create_job():
 
 @jobs_bp.route("/<job_id>", methods=["GET"])
 def get_job(job_id: str):
-    """Get job details including URLs and rules."""
+    """Get job details with rules. URLs are NOT included - use /urls endpoint with pagination."""
     job = job_repo.get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    urls = url_repo.list_urls(job_id)
     rules = rule_repo.list_rules(job_id)
 
+    # Only return job and rules - URLs are fetched separately via paginated endpoint
     return jsonify({
         "job": job.to_dict(),
-        "urls": [u.to_dict() for u in urls],
         "rules": [r.to_dict() for r in rules],
     })
 
@@ -147,14 +146,28 @@ def stop_job(job_id: str):
 # URL management endpoints
 @jobs_bp.route("/<job_id>/urls", methods=["GET"])
 def list_urls(job_id: str):
-    """List URLs for a job."""
+    """List URLs for a job with pagination."""
     job = job_repo.get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     status = request.args.get("status")
-    urls = url_repo.list_urls(job_id, status=status)
-    return jsonify({"urls": [u.to_dict() for u in urls]})
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+
+    # Cap limit to prevent huge requests
+    limit = min(limit, 200)
+
+    urls = url_repo.list_urls(job_id, status=status, limit=limit, offset=offset)
+    total = url_repo.count_urls(job_id, status=status)
+
+    return jsonify({
+        "urls": [u.to_dict() for u in urls],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(urls) < total,
+    })
 
 
 @jobs_bp.route("/<job_id>/urls", methods=["POST"])

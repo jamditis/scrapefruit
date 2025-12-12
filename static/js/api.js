@@ -85,9 +85,12 @@ const API = {
     },
 
     // URLs
-    async listUrls(jobId, status = null) {
-        const params = status ? `?status=${status}` : '';
-        return this.request('GET', `/api/jobs/${jobId}/urls${params}`);
+    async listUrls(jobId, { status = null, limit = 50, offset = 0 } = {}) {
+        const params = new URLSearchParams();
+        if (status) params.set('status', status);
+        params.set('limit', limit);
+        params.set('offset', offset);
+        return this.request('GET', `/api/jobs/${jobId}/urls?${params}`);
     },
 
     async addUrls(jobId, urls) {

@@ -130,8 +130,10 @@ const JobManager = {
         try {
             const result = await API.getJob(jobId);
             const job = result.job;
-            const urls = result.urls || [];
             const rules = result.rules || [];
+
+            // Store pagination state for URLs
+            this._urlPagination = { offset: 0, limit: 50, total: job.progress_total, loaded: [] };
 
             const percent = job.progress_total > 0
                 ? Math.round((job.progress_current / job.progress_total) * 100)
@@ -207,16 +209,17 @@ const JobManager = {
                 </div>
 
                 <div class="detail-section">
-                    <h3>URLs (${urls.length})</h3>
-                    <div class="urls-preview">
-                        ${urls.slice(0, 20).map(url => `
-                            <div class="url-item">
-                                <span class="url-status-dot ${url.status}"></span>
-                                <span>${this.escapeHtml(url.url)}</span>
-                            </div>
-                        `).join('')}
-                        ${urls.length > 20 ? `<p style="color: var(--color-text-muted); margin-top: var(--spacing-sm)">... and ${urls.length - 20} more</p>` : ''}
+                    <h3>URLs (${job.progress_total})</h3>
+                    <div class="urls-preview" id="urls-preview">
+                        <div class="urls-loading" style="padding: var(--spacing-md); color: var(--muted);">Loading URLs...</div>
                     </div>
+                    ${job.progress_total > 50 ? `
+                        <div class="urls-pagination" style="margin-top: var(--spacing-sm); display: flex; gap: var(--spacing-sm); align-items: center;">
+                            <button class="btn btn-sm btn-ghost" id="btn-urls-prev" disabled>← Prev</button>
+                            <span class="urls-page-info" id="urls-page-info" style="font-size: 12px; color: var(--muted);">1-50 of ${job.progress_total}</span>
+                            <button class="btn btn-sm btn-ghost" id="btn-urls-next" ${job.progress_total <= 50 ? 'disabled' : ''}>Next →</button>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div class="detail-section">
@@ -232,7 +235,7 @@ const JobManager = {
                     <div class="raw-data-content" id="raw-data-content" style="display: none;">
                         <div class="raw-data-tabs">
                             <button class="raw-data-tab active" data-tab="job">Job</button>
-                            <button class="raw-data-tab" data-tab="urls">URLs (${urls.length})</button>
+                            <button class="raw-data-tab" data-tab="urls">URLs (${job.progress_total})</button>
                             <button class="raw-data-tab" data-tab="results">Results</button>
                         </div>
                         <div class="raw-data-panel" id="raw-data-panel">
@@ -243,10 +246,13 @@ const JobManager = {
             `;
 
             // Store data for raw data inspector
-            this._rawData = { job, urls, rules };
+            this._rawData = { job, rules };
 
             // Bind action buttons
             this.bindDetailActions(job);
+
+            // Load first page of URLs (non-blocking)
+            this.loadUrls(job.id, 0);
 
             // Initialize sample analyzer
             if (typeof SampleAnalyzer !== 'undefined') {
@@ -358,6 +364,23 @@ const JobManager = {
             });
         });
 
+        // URL pagination buttons
+        const btnUrlsPrev = detail.querySelector('#btn-urls-prev');
+        const btnUrlsNext = detail.querySelector('#btn-urls-next');
+
+        if (btnUrlsPrev) {
+            btnUrlsPrev.addEventListener('click', () => {
+                const newOffset = Math.max(0, (this._urlPagination?.offset || 0) - 50);
+                this.loadUrls(job.id, newOffset);
+            });
+        }
+        if (btnUrlsNext) {
+            btnUrlsNext.addEventListener('click', () => {
+                const newOffset = (this._urlPagination?.offset || 0) + 50;
+                this.loadUrls(job.id, newOffset);
+            });
+        }
+
         // Raw data toggle
         const rawDataToggle = detail.querySelector('#raw-data-toggle');
         const rawDataContent = detail.querySelector('#raw-data-content');
@@ -381,6 +404,52 @@ const JobManager = {
         });
     },
 
+    async loadUrls(jobId, offset = 0) {
+        const preview = document.getElementById('urls-preview');
+        if (!preview) return;
+
+        try {
+            const result = await API.listUrls(jobId, { limit: 50, offset });
+            const urls = result.urls || [];
+            const total = result.total || 0;
+
+            // Update pagination state
+            this._urlPagination = { offset, limit: 50, total, loaded: urls };
+
+            // Render URLs
+            if (urls.length === 0) {
+                preview.innerHTML = `<div style="padding: var(--spacing-md); color: var(--muted);">No URLs added yet</div>`;
+            } else {
+                preview.innerHTML = urls.map(url => `
+                    <div class="url-item ${url.status}">
+                        <span class="url-status-dot ${url.status}"></span>
+                        <span class="url-text">${this.escapeHtml(url.url)}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Update pagination info
+            const pageInfo = document.getElementById('urls-page-info');
+            const btnPrev = document.getElementById('btn-urls-prev');
+            const btnNext = document.getElementById('btn-urls-next');
+
+            if (pageInfo) {
+                const start = offset + 1;
+                const end = Math.min(offset + urls.length, total);
+                pageInfo.textContent = `${start}-${end} of ${total}`;
+            }
+            if (btnPrev) {
+                btnPrev.disabled = offset === 0;
+            }
+            if (btnNext) {
+                btnNext.disabled = offset + 50 >= total;
+            }
+        } catch (error) {
+            console.error('Failed to load URLs:', error);
+            preview.innerHTML = `<div style="padding: var(--spacing-md); color: var(--signal);">Failed to load URLs</div>`;
+        }
+    },
+
     async showRawDataTab(tabName, jobId) {
         const panel = document.getElementById('raw-data-panel');
         if (!panel) return;
@@ -394,7 +463,13 @@ const JobManager = {
                     data = this._rawData?.job || {};
                     break;
                 case 'urls':
-                    data = this._rawData?.urls || [];
+                    // Fetch first 100 URLs for raw data view
+                    const urlResult = await API.listUrls(jobId, { limit: 100, offset: 0 });
+                    data = {
+                        urls: urlResult.urls || [],
+                        total: urlResult.total,
+                        showing: `First ${Math.min(100, urlResult.total)} of ${urlResult.total}`,
+                    };
                     break;
                 case 'results':
                     const results = await API.listResults(jobId, 100, 0);

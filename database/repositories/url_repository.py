@@ -61,16 +61,27 @@ class UrlRepository:
         self,
         job_id: str,
         status: Optional[str] = None,
-        limit: int = 1000,
+        limit: int = 50,
+        offset: int = 0,
     ) -> List[Url]:
-        """List URLs for a job."""
+        """List URLs for a job with pagination."""
         session = get_session()
         query = session.query(Url).filter(Url.job_id == job_id)
 
         if status:
             query = query.filter(Url.status == status)
 
-        return query.limit(limit).all()
+        return query.order_by(Url.id).offset(offset).limit(limit).all()
+
+    def count_urls(self, job_id: str, status: Optional[str] = None) -> int:
+        """Count URLs for a job."""
+        session = get_session()
+        query = session.query(Url).filter(Url.job_id == job_id)
+
+        if status:
+            query = query.filter(Url.status == status)
+
+        return query.count()
 
     def get_next_pending(self, job_id: str) -> Optional[Url]:
         """Get the next pending URL for processing."""
