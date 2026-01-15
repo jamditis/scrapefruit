@@ -82,7 +82,7 @@ class JobOrchestrator:
         # Update job status
         self.job_repo.update_status(job_id, Job.STATUS_RUNNING)
 
-        # Get settings
+        # Get global settings
         settings = {
             "timeout": self.settings_repo.get_int("scraping.timeout", 30000),
             "retry_count": self.settings_repo.get_int("scraping.retry_count", 3),
@@ -90,6 +90,10 @@ class JobOrchestrator:
             "delay_max": self.settings_repo.get_int("scraping.delay_max", 3000),
             "use_stealth": self.settings_repo.get_bool("scraping.use_stealth", True),
         }
+
+        # Merge job-specific settings (including cascade config)
+        if job.settings:
+            settings.update(job.settings)
 
         # Create worker with log callback
         worker = JobWorker(

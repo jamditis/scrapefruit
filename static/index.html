@@ -347,6 +347,54 @@
                     <textarea id="job-urls" class="textarea" rows="8" placeholder="https://example.com/page1&#10;https://example.com/page2"></textarea>
                     <span class="setting-help">Tip: You can paste from a spreadsheet column</span>
                 </div>
+
+                <!-- Cascade scraping settings -->
+                <div class="form-section">
+                    <div class="form-section-header" id="cascade-toggle">
+                        <label>
+                            Advanced: Cascade scraping
+                            <span class="tooltip" data-tip="Configure fallback methods when scraping fails. The system tries each method in order until one succeeds.">?</span>
+                        </label>
+                        <span class="toggle-icon">+</span>
+                    </div>
+                    <div class="form-section-content" id="cascade-settings" style="display: none;">
+                        <div class="form-group form-check">
+                            <input type="checkbox" id="cascade-enabled" checked>
+                            <label for="cascade-enabled">Enable cascade fallback</label>
+                            <span class="setting-help">Try alternative methods when scraping fails</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Scraping methods (drag to reorder)</label>
+                            <div class="cascade-methods" id="cascade-methods">
+                                <div class="cascade-method" data-method="http">
+                                    <input type="checkbox" id="method-http" checked>
+                                    <span class="method-handle">⋮⋮</span>
+                                    <label for="method-http">HTTP</label>
+                                    <span class="method-desc">Fast, basic requests</span>
+                                </div>
+                                <div class="cascade-method" data-method="playwright">
+                                    <input type="checkbox" id="method-playwright" checked>
+                                    <span class="method-handle">⋮⋮</span>
+                                    <label for="method-playwright">Playwright</label>
+                                    <span class="method-desc">JS rendering + stealth</span>
+                                </div>
+                                <div class="cascade-method" data-method="puppeteer">
+                                    <input type="checkbox" id="method-puppeteer" checked>
+                                    <span class="method-handle">⋮⋮</span>
+                                    <label for="method-puppeteer">Puppeteer</label>
+                                    <span class="method-desc">Alternative browser</span>
+                                </div>
+                                <div class="cascade-method" data-method="agent_browser">
+                                    <input type="checkbox" id="method-agent-browser">
+                                    <span class="method-handle">⋮⋮</span>
+                                    <label for="method-agent-browser">Agent Browser</label>
+                                    <span class="method-desc">AI-optimized (requires CLI)</span>
+                                </div>
+                            </div>
+                            <span class="setting-help">Order determines which methods are tried first</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-ghost modal-cancel">Cancel</button>
@@ -446,6 +494,7 @@
 
     <script src="/static/js/api.js"></script>
     <script src="/static/js/state.js"></script>
+    <script src="/static/js/components/cascade-settings.js"></script>
     <script src="/static/js/components/job-manager.js"></script>
     <script src="/static/js/components/rules-editor.js"></script>
     <script src="/static/js/components/results-view.js"></script>

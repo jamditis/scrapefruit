@@ -1,11 +1,13 @@
-"""Scraping engine with cascade fallback strategy."""
+"""Scraping engine with configurable cascade fallback strategy."""
 
 import re
-from typing import Optional, List, Dict, Any
-from dataclasses import dataclass
+from typing import Optional, List, Dict, Any, Tuple
+from dataclasses import dataclass, field
 
-from core.scraping.fetchers.http_fetcher import HTTPFetcher, FetchResult
-from core.scraping.fetchers.playwright_fetcher import PlaywrightFetcher, PlaywrightResult
+from core.scraping.fetchers.http_fetcher import HTTPFetcher
+from core.scraping.fetchers.playwright_fetcher import PlaywrightFetcher
+from core.scraping.fetchers.puppeteer_fetcher import PuppeteerFetcher
+from core.scraping.fetchers.agent_browser_fetcher import AgentBrowserFetcher
 from core.scraping.extractors.css_extractor import CSSExtractor
 from core.scraping.extractors.xpath_extractor import XPathExtractor
 from core.poison_pills.detector import PoisonPillDetector
@@ -25,95 +27,327 @@ class ScrapeResult:
     error: Optional[str] = None
     response_time_ms: int = 0
     poison_pill: Optional[str] = None
+    cascade_attempts: List[Dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         if self.data is None:
             self.data = {}
 
 
+# Default cascade configuration
+DEFAULT_CASCADE_CONFIG = {
+    "enabled": True,
+    "order": getattr(config, "DEFAULT_CASCADE_ORDER", ["http", "playwright", "puppeteer", "agent_browser"]),
+    "max_attempts": 4,
+    "fallback_on": {
+        "status_codes": getattr(config, "FALLBACK_STATUS_CODES", [403, 429, 503]),
+        "error_patterns": getattr(config, "FALLBACK_ERROR_PATTERNS", ["blocked", "captcha", "cloudflare", "challenge", "denied"]),
+        "poison_pills": getattr(config, "FALLBACK_POISON_PILLS", ["anti_bot", "rate_limited"]),
+        "empty_content": True,
+        "javascript_required": True,
+        "min_content_length": 500,
+    },
+}
+
+
 class ScrapingEngine:
     """
-    Main scraping engine implementing cascade strategy:
-    1. Try HTTP request first (fast)
-    2. Fall back to Playwright if HTTP fails or content is JS-heavy
+    Main scraping engine implementing configurable cascade strategy.
+
+    Cascade order (configurable):
+    1. HTTP (fastest, lightweight)
+    2. Playwright (JS rendering, stealth)
+    3. Puppeteer (alternative fingerprint)
+    4. Agent-browser (AI-optimized, accessibility tree)
+
+    Falls back to next method on:
+    - Blocked status codes (403, 429, 503)
+    - Anti-bot detection patterns
+    - Empty or JS-heavy content
+    - Poison pill detection
     """
 
+    # Available fetcher types
+    FETCHER_TYPES = ["http", "playwright", "puppeteer", "agent_browser"]
+
     def __init__(self):
-        self.http_fetcher = HTTPFetcher()
-        self.playwright_fetcher = PlaywrightFetcher()
+        # Fetcher registry - lazy loaded
+        self._fetchers: Dict[str, Any] = {}
+
+        # Extractors
         self.css_extractor = CSSExtractor()
         self.xpath_extractor = XPathExtractor()
         self.poison_detector = PoisonPillDetector()
 
+    def _get_fetcher(self, method: str):
+        """
+        Get or create a fetcher by method name. Lazy-loaded for efficiency.
+
+        Args:
+            method: Fetcher type ('http', 'playwright', 'puppeteer', 'agent_browser')
+
+        Returns:
+            Fetcher instance or None if unavailable
+        """
+        if method in self._fetchers:
+            return self._fetchers[method]
+
+        fetcher = None
+
+        if method == "http":
+            fetcher = HTTPFetcher()
+        elif method == "playwright":
+            fetcher = PlaywrightFetcher()
+        elif method == "puppeteer":
+            try:
+                fetcher = PuppeteerFetcher()
+            except Exception:
+                # Pyppeteer not installed
+                return None
+        elif method == "agent_browser":
+            fetcher = AgentBrowserFetcher()
+            # Check if CLI is available
+            if not fetcher.is_available():
+                return None
+
+        if fetcher:
+            self._fetchers[method] = fetcher
+
+        return fetcher
+
     def fetch_page(
         self,
         url: str,
-        force_playwright: bool = False,
+        cascade_config: Optional[Dict[str, Any]] = None,
         timeout: int = 30000,
+        force_method: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Fetch a page using cascade strategy.
+        Fetch a page using cascade strategy with configurable fallback.
 
         Args:
             url: URL to fetch
-            force_playwright: Skip HTTP and use Playwright directly
+            cascade_config: Override cascade settings (order, fallback conditions)
+            timeout: Timeout in milliseconds
+            force_method: Skip cascade and use specific method
+
+        Returns:
+            Dict with html, method, status_code, error, attempts
+        """
+        # Handle force_method (backwards compatibility with force_playwright)
+        if force_method:
+            fetcher = self._get_fetcher(force_method)
+            if not fetcher:
+                return {
+                    "html": "",
+                    "method": force_method,
+                    "status_code": 0,
+                    "error": f"Fetcher '{force_method}' not available",
+                    "response_time_ms": 0,
+                    "attempts": [],
+                }
+
+            result = self._fetch_with_method(fetcher, force_method, url, timeout)
+            return {
+                "html": result.get("html", ""),
+                "method": force_method,
+                "status_code": result.get("status_code", 0),
+                "error": result.get("error"),
+                "response_time_ms": result.get("response_time_ms", 0),
+                "attempts": [result],
+            }
+
+        # Merge cascade config with defaults
+        cfg = {**DEFAULT_CASCADE_CONFIG}
+        if cascade_config:
+            cfg.update(cascade_config)
+            if "fallback_on" in cascade_config:
+                cfg["fallback_on"] = {**DEFAULT_CASCADE_CONFIG["fallback_on"], **cascade_config["fallback_on"]}
+
+        # If cascade disabled, use first available method only
+        if not cfg.get("enabled", True):
+            order = cfg.get("order", ["http"])
+            for method in order:
+                fetcher = self._get_fetcher(method)
+                if fetcher:
+                    result = self._fetch_with_method(fetcher, method, url, timeout)
+                    return {
+                        "html": result.get("html", ""),
+                        "method": method,
+                        "status_code": result.get("status_code", 0),
+                        "error": result.get("error"),
+                        "response_time_ms": result.get("response_time_ms", 0),
+                        "attempts": [result],
+                    }
+
+        # Run cascade
+        order = cfg.get("order", DEFAULT_CASCADE_CONFIG["order"])
+        max_attempts = min(cfg.get("max_attempts", 4), len(order))
+        fallback_on = cfg.get("fallback_on", DEFAULT_CASCADE_CONFIG["fallback_on"])
+
+        attempts = []
+        total_time = 0
+
+        for i, method in enumerate(order[:max_attempts]):
+            fetcher = self._get_fetcher(method)
+            if not fetcher:
+                continue
+
+            # Adjust timeout per method (HTTP gets less time since it's faster)
+            method_timeout = timeout // 2 if method == "http" else timeout
+
+            result = self._fetch_with_method(fetcher, method, url, method_timeout)
+            result["attempt_index"] = i + 1
+            attempts.append(result)
+            total_time += result.get("response_time_ms", 0)
+
+            if result.get("success", False):
+                # Check if we should still fallback despite success
+                should_fallback, reason = self._should_fallback(
+                    result.get("html", ""),
+                    fallback_on,
+                )
+
+                if should_fallback and i < max_attempts - 1:
+                    result["fallback_reason"] = reason
+                    continue
+
+                # Success - return result
+                return {
+                    "html": result.get("html", ""),
+                    "method": method,
+                    "status_code": result.get("status_code", 0),
+                    "error": None,
+                    "response_time_ms": total_time,
+                    "attempts": attempts,
+                }
+
+            # Failed - check if we should try next method
+            if not self._should_try_next(result, fallback_on):
+                break
+
+        # All methods failed - return last attempt info
+        last = attempts[-1] if attempts else {}
+        return {
+            "html": last.get("html", ""),
+            "method": last.get("method", "none"),
+            "status_code": last.get("status_code", 0),
+            "error": last.get("error", "All cascade methods failed"),
+            "response_time_ms": total_time,
+            "attempts": attempts,
+        }
+
+    def _fetch_with_method(
+        self,
+        fetcher,
+        method: str,
+        url: str,
+        timeout: int,
+    ) -> Dict[str, Any]:
+        """
+        Fetch URL using a specific fetcher.
+
+        Args:
+            fetcher: Fetcher instance
+            method: Method name for logging
+            url: URL to fetch
             timeout: Timeout in milliseconds
 
         Returns:
-            Dict with html, method, status_code, error
+            Dict with fetch result
         """
-        if force_playwright:
-            result = self.playwright_fetcher.fetch(url, timeout=timeout)
+        try:
+            # HTTP fetcher uses seconds, others use milliseconds
+            if method == "http":
+                result = fetcher.fetch(url, timeout=timeout // 1000)
+            else:
+                result = fetcher.fetch(url, timeout=timeout)
+
             return {
+                "method": method,
+                "success": result.success,
                 "html": result.html,
-                "method": "playwright",
                 "status_code": result.status_code,
                 "error": result.error,
                 "response_time_ms": result.response_time_ms,
             }
 
-        # Try HTTP first
-        http_result = self.http_fetcher.fetch(url, timeout=timeout // 1000)
-
-        if http_result.success:
-            # Check if content needs JavaScript
-            if self._needs_javascript(http_result.html):
-                # Fall back to Playwright
-                pw_result = self.playwright_fetcher.fetch(url, timeout=timeout)
-                return {
-                    "html": pw_result.html,
-                    "method": "playwright",
-                    "status_code": pw_result.status_code,
-                    "error": pw_result.error,
-                    "response_time_ms": http_result.response_time_ms + pw_result.response_time_ms,
-                }
-
+        except Exception as e:
             return {
-                "html": http_result.html,
-                "method": "http",
-                "status_code": http_result.status_code,
-                "error": None,
-                "response_time_ms": http_result.response_time_ms,
+                "method": method,
+                "success": False,
+                "html": "",
+                "status_code": 0,
+                "error": str(e),
+                "response_time_ms": 0,
             }
 
-        # HTTP failed - check if it's worth trying Playwright
-        if http_result.status_code in (403, 429) or "blocked" in (http_result.error or "").lower():
-            pw_result = self.playwright_fetcher.fetch(url, timeout=timeout)
-            return {
-                "html": pw_result.html,
-                "method": "playwright",
-                "status_code": pw_result.status_code,
-                "error": pw_result.error if not pw_result.success else None,
-                "response_time_ms": http_result.response_time_ms + pw_result.response_time_ms,
-            }
+    def _should_fallback(
+        self,
+        html: str,
+        fallback_on: Dict[str, Any],
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Determine if we should try the next fetcher despite success.
 
-        return {
-            "html": "",
-            "method": "http",
-            "status_code": http_result.status_code,
-            "error": http_result.error,
-            "response_time_ms": http_result.response_time_ms,
-        }
+        Args:
+            html: Fetched HTML content
+            fallback_on: Fallback condition configuration
+
+        Returns:
+            Tuple of (should_fallback, reason)
+        """
+        # Check JavaScript requirement
+        if fallback_on.get("javascript_required", True):
+            if self._needs_javascript(html):
+                return True, "javascript_required"
+
+        # Check content length
+        if fallback_on.get("empty_content", True):
+            min_length = fallback_on.get("min_content_length", 500)
+            if len(html) < min_length:
+                return True, "content_too_short"
+
+        # Check for poison pills that might resolve with different method
+        retry_pills = fallback_on.get("poison_pills", [])
+        if retry_pills and html:
+            poison_check = self.poison_detector.detect(html, "")
+            if poison_check.is_poison and poison_check.pill_type in retry_pills:
+                return True, f"poison_pill:{poison_check.pill_type}"
+
+        return False, None
+
+    def _should_try_next(
+        self,
+        result: Dict[str, Any],
+        fallback_on: Dict[str, Any],
+    ) -> bool:
+        """
+        Determine if failure warrants trying the next method.
+
+        Args:
+            result: Fetch result dict
+            fallback_on: Fallback condition configuration
+
+        Returns:
+            True if should try next method
+        """
+        # Check status code triggers
+        trigger_codes = fallback_on.get("status_codes", [403, 429, 503])
+        if result.get("status_code") in trigger_codes:
+            return True
+
+        # Check error patterns
+        error_patterns = fallback_on.get("error_patterns", [])
+        error = result.get("error", "")
+        if error:
+            error_lower = error.lower()
+            for pattern in error_patterns:
+                if pattern.lower() in error_lower:
+                    return True
+
+        # Default: try next on any failure
+        return True
 
     def _needs_javascript(self, html: str) -> bool:
         """
@@ -163,6 +397,7 @@ class ScrapingEngine:
         url: str,
         rules: List[Dict[str, Any]],
         timeout: int = 30000,
+        cascade_config: Optional[Dict[str, Any]] = None,
     ) -> ScrapeResult:
         """
         Scrape a URL and extract data using provided rules.
@@ -171,12 +406,13 @@ class ScrapingEngine:
             url: URL to scrape
             rules: List of extraction rules [{name, selector_type, selector_value, attribute, is_list}]
             timeout: Timeout in milliseconds
+            cascade_config: Optional cascade configuration override
 
         Returns:
             ScrapeResult with extracted data
         """
-        # Fetch the page
-        fetch_result = self.fetch_page(url, timeout=timeout)
+        # Fetch the page using cascade
+        fetch_result = self.fetch_page(url, cascade_config=cascade_config, timeout=timeout)
 
         if fetch_result.get("error") and not fetch_result.get("html"):
             return ScrapeResult(
@@ -185,6 +421,7 @@ class ScrapingEngine:
                 method=fetch_result.get("method", ""),
                 error=fetch_result.get("error"),
                 response_time_ms=fetch_result.get("response_time_ms", 0),
+                cascade_attempts=fetch_result.get("attempts", []),
             )
 
         html = fetch_result.get("html", "")
@@ -192,16 +429,20 @@ class ScrapingEngine:
         # Check for poison pills
         poison_check = self.poison_detector.detect(html, url)
         if poison_check.is_poison:
-            return ScrapeResult(
-                success=False,
-                url=url,
-                method=fetch_result.get("method", ""),
-                html=html,
-                html_preview=html[:2000],
-                error=poison_check.details.get("message", "Content issue detected"),
-                poison_pill=poison_check.pill_type,
-                response_time_ms=fetch_result.get("response_time_ms", 0),
-            )
+            # Check if this poison pill should have triggered cascade retry
+            retry_pills = DEFAULT_CASCADE_CONFIG["fallback_on"].get("poison_pills", [])
+            if poison_check.pill_type not in retry_pills:
+                return ScrapeResult(
+                    success=False,
+                    url=url,
+                    method=fetch_result.get("method", ""),
+                    html=html,
+                    html_preview=html[:2000],
+                    error=poison_check.details.get("message", "Content issue detected"),
+                    poison_pill=poison_check.pill_type,
+                    response_time_ms=fetch_result.get("response_time_ms", 0),
+                    cascade_attempts=fetch_result.get("attempts", []),
+                )
 
         # Extract data using rules
         extracted_data = {}
@@ -249,6 +490,7 @@ class ScrapingEngine:
             html_preview=html[:2000],
             error="; ".join(extraction_errors) if extraction_errors else None,
             response_time_ms=fetch_result.get("response_time_ms", 0),
+            cascade_attempts=fetch_result.get("attempts", []),
         )
 
     def test_selector(
@@ -283,3 +525,17 @@ class ScrapingEngine:
                 "matches": [],
                 "count": 0,
             }
+
+    def get_available_methods(self) -> List[str]:
+        """
+        Get list of available fetcher methods.
+
+        Returns:
+            List of method names that are currently available
+        """
+        available = []
+        for method in self.FETCHER_TYPES:
+            fetcher = self._get_fetcher(method)
+            if fetcher:
+                available.append(method)
+        return available

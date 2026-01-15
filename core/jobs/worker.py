@@ -85,6 +85,12 @@ class JobWorker:
             rule_names = [r.get("name", "unnamed") for r in rules_dicts]
             self._emit_log("debug", f"Extraction rules: {', '.join(rule_names)}")
 
+        # Extract cascade configuration from settings
+        cascade_config = self.settings.get("cascade", None)
+        if cascade_config:
+            cascade_order = cascade_config.get("order", [])
+            self._emit_log("info", f"Cascade mode: {' → '.join(cascade_order) if cascade_order else 'default'}")
+
         while self._running and not self._stop_requested:
             # Get next pending URL
             url_record = self.url_repo.get_next_pending(self.job_id)
@@ -97,7 +103,7 @@ class JobWorker:
             processed += 1
             self._emit_log("info", f"[{processed}/{pending_count}] Fetching: {url_record.url[:80]}...")
 
-            self._process_url(url_record, rules_dicts, processed, pending_count)
+            self._process_url(url_record, rules_dicts, cascade_config, processed, pending_count)
 
             # Delay between requests
             if not self._stop_requested:
@@ -110,7 +116,7 @@ class JobWorker:
 
         self._running = False
 
-    def _process_url(self, url_record, rules: list, current: int = 0, total: int = 0):
+    def _process_url(self, url_record, rules: list, cascade_config: Optional[Dict] = None, current: int = 0, total: int = 0):
         """Process a single URL with detailed logging."""
         url_id = url_record.id
         url = url_record.url
@@ -120,11 +126,12 @@ class JobWorker:
         start_time = time.time()
 
         try:
-            # Scrape the URL
+            # Scrape the URL with cascade config
             result = self.engine.scrape_url(
                 url=url,
                 rules=rules,
                 timeout=self.settings.get("timeout", 30000),
+                cascade_config=cascade_config,
             )
 
             processing_time = int((time.time() - start_time) * 1000)
@@ -133,11 +140,18 @@ class JobWorker:
                 # Log the method used and data extracted
                 data_summary = {k: (len(v) if isinstance(v, list) else "1 value")
                                for k, v in result.data.items()}
-                self._emit_log("success", f"Extracted data via {result.method} in {processing_time}ms", {
+
+                # Include cascade attempt info if available
+                cascade_info = ""
+                if result.cascade_attempts and len(result.cascade_attempts) > 1:
+                    cascade_info = f" (after {len(result.cascade_attempts)} attempts)"
+
+                self._emit_log("success", f"Extracted data via {result.method}{cascade_info} in {processing_time}ms", {
                     "url": url,
                     "method": result.method,
                     "time_ms": processing_time,
                     "fields": data_summary,
+                    "cascade_attempts": len(result.cascade_attempts) if result.cascade_attempts else 1,
                     "data_preview": {k: (v[:2] if isinstance(v, list) and len(v) > 2 else v)
                                     for k, v in result.data.items()},
                 })

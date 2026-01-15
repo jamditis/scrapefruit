@@ -11,6 +11,7 @@ eventlet>=0.35
 # Scraping
 playwright>=1.40
 playwright-stealth>=1.0.6
+pyppeteer>=2.0.0
 requests>=2.31
 trafilatura>=1.6
 lxml>=5.0

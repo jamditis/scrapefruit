@@ -61,6 +61,19 @@ ANTI_BOT_PATTERNS = [
     r"rate\s+limit",
 ]
 
+# Cascade scraping configuration
+DEFAULT_CASCADE_ORDER = ["http", "playwright", "puppeteer", "agent_browser"]
+CASCADE_ENABLED = True
+
+# Fallback triggers - conditions that cause cascade to try next method
+FALLBACK_STATUS_CODES = [403, 429, 503]
+FALLBACK_ERROR_PATTERNS = ["blocked", "captcha", "cloudflare", "challenge", "denied", "rate limit"]
+FALLBACK_POISON_PILLS = ["anti_bot", "rate_limited"]
+
+# Agent-browser configuration
+AGENT_BROWSER_PATH = os.getenv("AGENT_BROWSER_PATH", "agent-browser")
+AGENT_BROWSER_TIMEOUT = 60000  # Allow more time for CLI tool
+
 # Window settings
 WINDOW_TITLE = "Scrapefruit"
 WINDOW_WIDTH = 1400

@@ -10,6 +10,11 @@ const JobManager = {
         this.cacheElements();
         this.bindEvents();
         this.loadJobs();
+
+        // Initialize cascade settings component
+        if (typeof CascadeSettings !== 'undefined') {
+            CascadeSettings.init();
+        }
     },
 
     cacheElements() {
@@ -545,6 +550,12 @@ const JobManager = {
         document.getElementById('job-name').value = '';
         document.getElementById('job-mode').value = 'list';
         document.getElementById('job-urls').value = '';
+
+        // Reset cascade settings
+        if (typeof CascadeSettings !== 'undefined') {
+            CascadeSettings.reset();
+        }
+
         this.els.modalNewJob.classList.add('active');
     },
 
@@ -569,9 +580,19 @@ const JobManager = {
         const mode = document.getElementById('job-mode').value;
         const urlsText = document.getElementById('job-urls').value.trim();
 
+        // Get cascade configuration
+        let cascadeConfig = null;
+        if (typeof CascadeSettings !== 'undefined') {
+            cascadeConfig = CascadeSettings.getConfig();
+        }
+
         try {
-            // Create job
-            const result = await API.createJob({ name, mode });
+            // Create job with cascade settings
+            const jobData = { name, mode };
+            if (cascadeConfig) {
+                jobData.settings = { cascade: cascadeConfig };
+            }
+            const result = await API.createJob(jobData);
             const job = result.job;
 
             // Add URLs if provided
