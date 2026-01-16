@@ -142,6 +142,10 @@ const API = {
         return this.request('POST', `/api/jobs/${jobId}/stop`);
     },
 
+    async resetJob(jobId) {
+        return this.request('POST', `/api/jobs/${jobId}/reset`);
+    },
+
     async archiveJob(jobId) {
         return this.request('POST', `/api/jobs/${jobId}/archive`);
     },

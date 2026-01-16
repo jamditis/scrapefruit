@@ -400,3 +400,47 @@ def clear_logs(job_id: str):
 
     orchestrator.clear_job_logs(job_id)
     return jsonify({"message": "Logs cleared"})
+
+
+@jobs_bp.route("/<job_id>/reset", methods=["POST"])
+def reset_job(job_id: str):
+    """
+    Reset a job to pending state, allowing it to be restarted.
+
+    This resets:
+    - Job status to 'pending'
+    - Job progress counters to 0
+    - All URL statuses back to 'pending'
+    - Clears job logs
+
+    Can reset jobs in any terminal state: completed, failed, cancelled.
+    """
+    job = job_repo.get_job(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+
+    if job.status == "running":
+        return jsonify({"error": "Cannot reset a running job. Stop it first."}), 400
+
+    if job.status == "archived":
+        return jsonify({"error": "Cannot reset an archived job. Unarchive it first."}), 400
+
+    # Reset job status and counters
+    job = job_repo.update_job(
+        job_id,
+        status="pending",
+        progress_current=0,
+        success_count=0,
+        failure_count=0,
+        error_message=None,
+        started_at=None,
+        completed_at=None,
+    )
+
+    # Reset all URL statuses to pending
+    url_repo.reset_all_urls(job_id)
+
+    # Clear logs
+    orchestrator.clear_job_logs(job_id)
+
+    return jsonify({"job": job.to_dict(), "message": "Job reset to pending"})

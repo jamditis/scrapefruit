@@ -653,11 +653,21 @@ const JobManager = {
                     }
                     break;
                 case 'restart':
-                    // Reset and start
+                    // Reset job first (resets status, URLs, and logs), then start
+                    await API.resetJob(jobId);
                     result = await API.startJob(jobId);
+                    // Initialize progress tracker
+                    if (typeof ProgressTracker !== 'undefined') {
+                        const job = result?.job;
+                        ProgressTracker.initJob(jobId, job?.progress_total || 0);
+                    }
                     // Start activity log polling
                     if (typeof ActivityLog !== 'undefined') {
                         ActivityLog.startPolling(jobId);
+                    }
+                    // Show toast
+                    if (typeof Toast !== 'undefined') {
+                        Toast.info('Job restarted', { title: 'Restarting' });
                     }
                     break;
                 case 'archive':

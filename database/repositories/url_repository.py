@@ -206,3 +206,31 @@ class UrlRepository:
             .filter(Url.job_id == job_id, Url.status == Url.STATUS_PENDING)
             .count()
         )
+
+    def reset_all_urls(self, job_id: str) -> int:
+        """
+        Reset all URLs in a job back to pending status.
+
+        Clears error messages and attempt counts.
+        Returns the number of URLs reset.
+        """
+        session = get_session()
+        try:
+            updated = (
+                session.query(Url)
+                .filter(Url.job_id == job_id)
+                .update({
+                    Url.status: Url.STATUS_PENDING,
+                    Url.error_type: None,
+                    Url.error_message: None,
+                    Url.attempt_count: 0,
+                    Url.processing_time_ms: None,
+                    Url.last_attempt_at: None,
+                    Url.completed_at: None,
+                })
+            )
+            session.commit()
+            return updated
+        except Exception:
+            session.rollback()
+            raise
