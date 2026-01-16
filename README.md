@@ -12,14 +12,14 @@ A Python web application for web scraping with a visual interface. Combines a py
 
 ## Features
 
-- **Visual Interface**: Desktop GUI powered by pywebview
-- **Cascade Scraping**: Multi-method fallback system (HTTP, Playwright, Puppeteer, Agent-browser)
-- **Anti-bot Bypass**: Playwright-stealth integration for handling Cloudflare, CAPTCHAs, and rate limiting
-- **Smart Detection**: Automatic poison pill detection (paywalls, anti-bot patterns)
-- **Data Extraction**: CSS selectors, XPath expressions, and Trafilatura for article extraction
-- **Export Options**: SQLite database and Google Sheets integration
+- **Visual interface**: Desktop GUI powered by pywebview
+- **Cascade scraping**: Multi-method fallback system (HTTP, Playwright, Puppeteer, Agent-browser)
+- **Anti-bot bypass**: Playwright-stealth integration for handling Cloudflare, CAPTCHAs, and rate limiting
+- **Smart detection**: Automatic poison pill detection (paywalls, anti-bot patterns)
+- **Data extraction**: CSS selectors, XPath expressions, and Trafilatura for article extraction
+- **Export options**: SQLite database and Google Sheets integration
 
-## Tech Stack
+## Tech stack
 
 - **GUI**: pywebview
 - **Backend**: Flask + Flask-SocketIO
@@ -27,9 +27,9 @@ A Python web application for web scraping with a visual interface. Combines a py
 - **Database**: SQLite via SQLAlchemy
 - **Export**: Google Sheets (gspread)
 
-## Quick Start
+## Quick start
 
-### 1. Clone and Setup
+### 1. Clone and setup
 
 ```bash
 git clone https://github.com/jamditis/scrapefruit.git
@@ -45,14 +45,14 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
-### 2. Install Dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 playwright install  # Install browser binaries
 ```
 
-### 3. Configure Environment
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
@@ -67,7 +67,7 @@ python main.py
 
 The app runs on `http://127.0.0.1:5150`
 
-## Cascade Scraping
+## Cascade scraping
 
 The engine uses a configurable cascade strategy that automatically falls back between scraping methods:
 
