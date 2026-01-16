@@ -5,7 +5,9 @@
 const SampleAnalyzer = {
     files: [],
     suggestions: [],
+    htmlSamples: [], // HTML content fetched from URLs
     isAnalyzing: false,
+    isFetching: false,
 
     init() {
         // Bind modal close handlers once
@@ -60,6 +62,12 @@ const SampleAnalyzer = {
         // Analyze button
         if (analyzeBtn) {
             analyzeBtn.addEventListener('click', () => this.analyzeSamples());
+        }
+
+        // Fetch from URLs button
+        const fetchBtn = document.getElementById('btn-fetch-samples');
+        if (fetchBtn) {
+            fetchBtn.addEventListener('click', () => this.fetchSamplesFromJobUrls());
         }
     },
 
@@ -123,48 +131,191 @@ const SampleAnalyzer = {
      */
     updateAnalyzeButton() {
         const btn = document.getElementById('btn-analyze-samples');
+        const totalSamples = this.files.length + this.htmlSamples.length;
         if (btn) {
-            btn.disabled = this.files.length === 0 || this.isAnalyzing;
+            btn.disabled = totalSamples === 0 || this.isAnalyzing || this.isFetching;
             btn.textContent = this.isAnalyzing
                 ? 'Analyzing...'
-                : `Analyze ${this.files.length} sample${this.files.length !== 1 ? 's' : ''}`;
+                : `Analyze ${totalSamples} sample${totalSamples !== 1 ? 's' : ''}`;
         }
+    },
+
+    /**
+     * Update fetch button state
+     */
+    updateFetchButton() {
+        const btn = document.getElementById('btn-fetch-samples');
+        if (btn) {
+            btn.disabled = this.isFetching || this.isAnalyzing;
+            btn.textContent = this.isFetching ? 'Fetching...' : 'Fetch from URLs';
+        }
+    },
+
+    /**
+     * Fetch HTML samples from job URLs
+     */
+    async fetchSamplesFromJobUrls() {
+        const jobId = State.get('selectedJobId');
+        if (!jobId) {
+            alert('No job selected');
+            return;
+        }
+
+        this.isFetching = true;
+        this.updateFetchButton();
+        this.updateAnalyzeButton();
+
+        try {
+            // Get first 10 URLs from the job
+            const urlResult = await API.listUrls(jobId, { limit: 10, offset: 0 });
+            const urls = (urlResult.urls || []).map(u => u.url);
+
+            if (urls.length === 0) {
+                alert('No URLs in this job. Add some URLs first.');
+                return;
+            }
+
+            // Fetch HTML from the URLs
+            const result = await API.fetchSamplesFromUrls(urls);
+
+            if (result.samples && result.samples.length > 0) {
+                this.htmlSamples = result.samples;
+                this.renderFetchedSamples();
+
+                if (result.errors && result.errors.length > 0) {
+                    console.warn('Some URLs failed to fetch:', result.errors);
+                }
+            } else {
+                alert('Failed to fetch any HTML samples. Check console for errors.');
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch samples:', error);
+            alert(`Failed to fetch samples: ${error.message}`);
+        } finally {
+            this.isFetching = false;
+            this.updateFetchButton();
+            this.updateAnalyzeButton();
+        }
+    },
+
+    /**
+     * Render fetched samples in the file list
+     */
+    renderFetchedSamples() {
+        const listEl = document.getElementById('upload-files-list');
+        if (!listEl) return;
+
+        // Combine file items and fetched sample items
+        let html = '';
+
+        // File items
+        this.files.forEach((f, i) => {
+            html += `
+                <div class="upload-file-item">
+                    <span class="file-name">${this.escapeHtml(f.name)}</span>
+                    <span class="file-size">${this.formatSize(f.size)}</span>
+                    <button class="file-remove" data-type="file" data-index="${i}">×</button>
+                </div>
+            `;
+        });
+
+        // Fetched HTML samples
+        this.htmlSamples.forEach((sample, i) => {
+            const urlShort = sample.url.length > 40 ? sample.url.substring(0, 37) + '...' : sample.url;
+            html += `
+                <div class="upload-file-item fetched">
+                    <span class="file-name" title="${this.escapeHtml(sample.url)}">🌐 ${this.escapeHtml(urlShort)}</span>
+                    <span class="file-size">${this.formatSize(sample.size)}</span>
+                    <button class="file-remove" data-type="fetched" data-index="${i}">×</button>
+                </div>
+            `;
+        });
+
+        listEl.innerHTML = html;
+
+        // Bind remove buttons
+        listEl.querySelectorAll('.file-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const type = btn.dataset.type;
+                const index = parseInt(btn.dataset.index);
+
+                if (type === 'file') {
+                    this.files.splice(index, 1);
+                } else {
+                    this.htmlSamples.splice(index, 1);
+                }
+
+                this.renderFetchedSamples();
+                this.updateAnalyzeButton();
+            });
+        });
     },
 
     /**
      * Send files to backend for analysis
      */
     async analyzeSamples() {
-        if (this.files.length === 0 || this.isAnalyzing) return;
+        const totalSamples = this.files.length + this.htmlSamples.length;
+        if (totalSamples === 0 || this.isAnalyzing) return;
 
         this.isAnalyzing = true;
         this.updateAnalyzeButton();
 
         try {
-            const formData = new FormData();
-            this.files.forEach(f => formData.append('samples', f));
+            let result;
 
-            const response = await fetch('/api/scraping/analyze-html', {
-                method: 'POST',
-                body: formData,
-            });
+            // If we have fetched HTML samples, send them as JSON
+            if (this.htmlSamples.length > 0) {
+                // Read file contents and combine with fetched HTML
+                const fileContents = await Promise.all(
+                    this.files.map(f => f.text())
+                );
 
-            // Check if response is OK
-            if (!response.ok) {
-                const text = await response.text();
-                console.error('Server error:', response.status, text.substring(0, 500));
-                throw new Error(`Server error ${response.status}: ${text.substring(0, 100)}`);
+                const allHtml = [
+                    ...fileContents,
+                    ...this.htmlSamples.map(s => s.html)
+                ];
+
+                const response = await fetch('/api/scraping/analyze-html', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ html_samples: allHtml }),
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server error:', response.status, text.substring(0, 500));
+                    throw new Error(`Server error ${response.status}: ${text.substring(0, 100)}`);
+                }
+
+                result = await response.json();
+            } else {
+                // Only files - use FormData
+                const formData = new FormData();
+                this.files.forEach(f => formData.append('samples', f));
+
+                const response = await fetch('/api/scraping/analyze-html', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server error:', response.status, text.substring(0, 500));
+                    throw new Error(`Server error ${response.status}: ${text.substring(0, 100)}`);
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Non-JSON response:', contentType, text.substring(0, 500));
+                    throw new Error('Server returned invalid response. Check console for details.');
+                }
+
+                result = await response.json();
             }
-
-            // Check content type
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Non-JSON response:', contentType, text.substring(0, 500));
-                throw new Error('Server returned invalid response. Check console for details.');
-            }
-
-            const result = await response.json();
 
             if (!result.success) {
                 throw new Error(result.error || 'Analysis failed');
@@ -329,14 +480,15 @@ const SampleAnalyzer = {
     },
 
     /**
-     * Clear uploaded files
+     * Clear uploaded files and fetched samples
      */
     clearFiles() {
         this.files = [];
+        this.htmlSamples = [];
         this.suggestions = [];
         const fileInput = document.getElementById('sample-files');
         if (fileInput) fileInput.value = '';
-        this.renderFileList();
+        this.renderFetchedSamples();
         this.updateAnalyzeButton();
     },
 

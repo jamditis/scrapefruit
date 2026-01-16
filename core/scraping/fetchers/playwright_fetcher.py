@@ -169,23 +169,71 @@ class PlaywrightFetcher:
         """
         Synchronous wrapper for fetch_async.
 
-        Creates event loop if needed.
+        Creates event loop if needed. Handles threading issues with signal.
         """
+        import threading
+
+        # Check if we're in a thread (Flask runs in threads)
+        is_main_thread = threading.current_thread() is threading.main_thread()
+
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
+            # Try to get existing loop
+            try:
+                loop = asyncio.get_running_loop()
+                # If there's a running loop, we need to run in a new thread
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(self._run_in_new_loop, url, timeout, wait_for, wait_for_timeout, take_screenshot)
+                    return future.result(timeout=timeout // 1000 + 30)
+            except RuntimeError:
+                # No running loop
+                pass
+
+            # Create new event loop for this thread
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        return loop.run_until_complete(
-            self.fetch_async(
-                url,
-                timeout=timeout,
-                wait_for=wait_for,
-                wait_for_timeout=wait_for_timeout,
-                take_screenshot=take_screenshot,
+            try:
+                return loop.run_until_complete(
+                    self.fetch_async(
+                        url,
+                        timeout=timeout,
+                        wait_for=wait_for,
+                        wait_for_timeout=wait_for_timeout,
+                        take_screenshot=take_screenshot,
+                    )
+                )
+            finally:
+                loop.close()
+
+        except Exception as e:
+            error_msg = str(e)
+            # Handle signal error gracefully
+            if "signal only works in main thread" in error_msg:
+                error_msg = "Playwright unavailable in threaded context. Try HTTP or restart the application."
+            return PlaywrightResult(
+                success=False,
+                method="playwright",
+                error=error_msg,
             )
-        )
+
+    def _run_in_new_loop(
+        self,
+        url: str,
+        timeout: int,
+        wait_for: Optional[str],
+        wait_for_timeout: int,
+        take_screenshot: bool,
+    ) -> PlaywrightResult:
+        """Run fetch in a completely new event loop in a separate thread."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                self.fetch_async(url, timeout, wait_for, wait_for_timeout, take_screenshot)
+            )
+        finally:
+            loop.close()
 
     async def close(self):
         """Close the browser."""

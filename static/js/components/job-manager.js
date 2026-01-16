@@ -188,9 +188,10 @@ const JobManager = {
                             <div class="stat-value" style="color: var(--color-success)">${job.success_count}</div>
                             <div class="stat-label">Successful</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card ${job.failure_count > 0 ? 'has-failures' : ''}">
                             <div class="stat-value" style="color: var(--color-error)">${job.failure_count}</div>
                             <div class="stat-label">Failed</div>
+                            ${job.failure_count > 0 ? `<button class="btn btn-xs btn-ghost" id="btn-retry-failed" style="margin-top: var(--spacing-xs);">Retry in new job</button>` : ''}
                         </div>
                     </div>
                 </div>
@@ -219,7 +220,7 @@ const JobManager = {
                 <div class="detail-section sample-analyzer-section">
                     <h3>Quick setup from samples</h3>
                     <p style="color: var(--color-text-muted); margin-bottom: var(--spacing-md);">
-                        Upload 1-10 HTML sample files to auto-detect extraction patterns
+                        Upload HTML files or fetch directly from job URLs to auto-detect extraction patterns
                     </p>
                     <div class="sample-upload-zone" id="sample-upload-zone">
                         <input type="file" id="sample-files" multiple accept=".html,.htm" hidden>
@@ -229,9 +230,14 @@ const JobManager = {
                         </div>
                         <div class="upload-files" id="upload-files-list"></div>
                     </div>
-                    <button class="btn btn-secondary" id="btn-analyze-samples" disabled style="margin-top: var(--spacing-md);">
-                        Analyze samples
-                    </button>
+                    <div class="sample-analyzer-buttons" style="margin-top: var(--spacing-md); display: flex; gap: var(--spacing-sm);">
+                        <button class="btn btn-secondary" id="btn-fetch-samples">
+                            Fetch from URLs
+                        </button>
+                        <button class="btn btn-primary" id="btn-analyze-samples" disabled>
+                            Analyze samples
+                        </button>
+                    </div>
                 </div>
 
                 <div class="detail-section">
@@ -448,6 +454,44 @@ const JobManager = {
                 this.showRawDataTab(tab.dataset.tab, job.id);
             });
         });
+
+        // Retry failed URLs button
+        const btnRetryFailed = detail.querySelector('#btn-retry-failed');
+        if (btnRetryFailed) {
+            btnRetryFailed.addEventListener('click', () => this.retryFailedUrls(job));
+        }
+    },
+
+    /**
+     * Create a new job with failed URLs from current job
+     */
+    async retryFailedUrls(job) {
+        try {
+            // Fetch failed URLs
+            const result = await API.listUrls(job.id, { status: 'failed', limit: 200 });
+            const failedUrls = result.urls || [];
+
+            if (failedUrls.length === 0) {
+                alert('No failed URLs found');
+                return;
+            }
+
+            // Pre-fill new job modal with failed URLs
+            document.getElementById('job-name').value = `${job.name} (retry)`;
+            document.getElementById('job-mode').value = 'list';
+            document.getElementById('job-urls').value = failedUrls.map(u => u.url).join('\n');
+
+            // Reset cascade settings
+            if (typeof CascadeSettings !== 'undefined') {
+                CascadeSettings.reset();
+            }
+
+            this.els.modalNewJob.classList.add('active');
+
+        } catch (error) {
+            console.error('Failed to load failed URLs:', error);
+            alert(`Failed to load failed URLs: ${error.message}`);
+        }
     },
 
     async loadUrls(jobId, offset = 0) {

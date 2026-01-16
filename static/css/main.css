@@ -2117,9 +2117,25 @@ input[type="checkbox"]:focus {
     font-size: 9px;
 }
 
+.activity-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
 .activity-filters {
     display: flex;
     gap: var(--spacing-xs);
+}
+
+.activity-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.activity-actions .btn-xs {
+    font-size: 10px;
+    padding: 2px 6px;
 }
 
 .activity-filter {

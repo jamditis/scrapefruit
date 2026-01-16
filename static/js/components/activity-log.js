@@ -24,10 +24,16 @@ const ActivityLog = {
                         Activity Log
                         <span class="log-count" id="log-count">0</span>
                     </h4>
-                    <div class="activity-filters">
-                        <button class="activity-filter active" data-level="all">All</button>
-                        <button class="activity-filter" data-level="success">Success</button>
-                        <button class="activity-filter" data-level="error">Errors</button>
+                    <div class="activity-controls">
+                        <div class="activity-filters">
+                            <button class="activity-filter active" data-level="all">All</button>
+                            <button class="activity-filter" data-level="success">Success</button>
+                            <button class="activity-filter" data-level="error">Errors</button>
+                        </div>
+                        <div class="activity-actions">
+                            <button class="btn btn-ghost btn-xs" id="btn-copy-logs" title="Copy to clipboard">📋 Copy</button>
+                            <button class="btn btn-ghost btn-xs" id="btn-save-logs" title="Save as .txt file">💾 Save</button>
+                        </div>
                     </div>
                 </div>
                 <div class="activity-body" id="activity-body">
@@ -37,6 +43,7 @@ const ActivityLog = {
         `;
 
         this.bindFilterEvents();
+        this.bindExportEvents();
     },
 
     /**
@@ -210,6 +217,92 @@ const ActivityLog = {
         this.logIndex = 0;
         this.clearLogs();
         await this.fetchLogs();
+    },
+
+    /**
+     * Bind export button events
+     */
+    bindExportEvents() {
+        const btnCopy = document.getElementById('btn-copy-logs');
+        const btnSave = document.getElementById('btn-save-logs');
+
+        if (btnCopy) {
+            btnCopy.addEventListener('click', () => this.copyLogsToClipboard());
+        }
+        if (btnSave) {
+            btnSave.addEventListener('click', () => this.saveLogsToFile());
+        }
+    },
+
+    /**
+     * Get all logs as plain text
+     */
+    getLogsAsText() {
+        const body = document.getElementById('activity-body');
+        if (!body) return '';
+
+        const entries = body.querySelectorAll('.log-entry');
+        const lines = [];
+
+        entries.forEach(entry => {
+            const time = entry.querySelector('.log-time')?.textContent || '';
+            const level = entry.querySelector('.log-level')?.classList.contains('error') ? 'ERROR' :
+                          entry.querySelector('.log-level')?.classList.contains('success') ? 'SUCCESS' : 'INFO';
+            const message = entry.querySelector('.log-message')?.textContent || '';
+            lines.push(`[${time}] [${level}] ${message}`);
+        });
+
+        return lines.join('\n');
+    },
+
+    /**
+     * Copy logs to clipboard
+     */
+    async copyLogsToClipboard() {
+        const text = this.getLogsAsText();
+        if (!text) {
+            alert('No logs to copy');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(text);
+            // Show feedback
+            const btn = document.getElementById('btn-copy-logs');
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => btn.textContent = originalText, 2000);
+            }
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error);
+            alert('Failed to copy to clipboard');
+        }
+    },
+
+    /**
+     * Save logs to .txt file
+     */
+    saveLogsToFile() {
+        const text = this.getLogsAsText();
+        if (!text) {
+            alert('No logs to save');
+            return;
+        }
+
+        const jobId = this.currentJobId || 'unknown';
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `scrapefruit-logs-${jobId.slice(0, 8)}-${timestamp}.txt`;
+
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     },
 
     /**

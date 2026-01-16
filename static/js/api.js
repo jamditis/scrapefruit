@@ -245,6 +245,10 @@ const API = {
         });
     },
 
+    async fetchSamplesFromUrls(urls) {
+        return this.request('POST', '/api/scraping/fetch-samples', { urls });
+    },
+
     // Settings
     async getSettings() {
         return this.request('GET', '/api/settings');

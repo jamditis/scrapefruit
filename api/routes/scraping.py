@@ -107,6 +107,78 @@ def fetch_html():
         }), 500
 
 
+@scraping_bp.route("/fetch-samples", methods=["POST"])
+def fetch_samples():
+    """
+    Fetch HTML from URLs for sample analysis.
+    Uses SingleFile CLI if available, falls back to Playwright/HTTP.
+    Returns the HTML content directly for the analyzer.
+    """
+    import subprocess
+    import shutil
+    import traceback
+
+    data = request.get_json()
+    urls = data.get("urls", [])
+
+    if not urls:
+        return jsonify({"error": "No URLs provided"}), 400
+
+    if len(urls) > 10:
+        return jsonify({"error": "Maximum 10 URLs allowed"}), 400
+
+    samples = []
+    errors = []
+
+    # Check if singlefile is available
+    singlefile_path = shutil.which("single-file") or shutil.which("singlefile")
+
+    for url in urls:
+        try:
+            html = None
+
+            # Try SingleFile first if available
+            if singlefile_path:
+                try:
+                    result = subprocess.run(
+                        [singlefile_path, url, "--dump-content"],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        html = result.stdout
+                except (subprocess.TimeoutExpired, Exception) as e:
+                    print(f"SingleFile failed for {url}: {e}")
+
+            # Fall back to scraping engine
+            if not html:
+                engine = get_engine()
+                result = engine.fetch_page(url)
+                html = result.get("html", "")
+
+            if html and len(html) > 100:  # Minimum viable HTML
+                samples.append({
+                    "url": url,
+                    "html": html,
+                    "size": len(html)
+                })
+            else:
+                errors.append({"url": url, "error": "Empty or minimal HTML returned"})
+
+        except Exception as e:
+            traceback.print_exc()
+            errors.append({"url": url, "error": str(e)})
+
+    return jsonify({
+        "success": True,
+        "samples": samples,
+        "errors": errors,
+        "fetched_count": len(samples),
+        "error_count": len(errors)
+    })
+
+
 @scraping_bp.route("/analyze-html", methods=["POST"])
 def analyze_html():
     """Analyze uploaded HTML samples and suggest extraction rules."""
