@@ -15,7 +15,9 @@ const ResultsView = {
     cacheElements() {
         this.els = {
             jobSelect: document.getElementById('results-job-select'),
+            jobSelectMain: document.getElementById('results-job-select-main'),
             resultsContainer: document.getElementById('results-container'),
+            emptyState: document.getElementById('results-empty-state'),
             btnExportJson: document.getElementById('btn-export-json'),
             btnExportCsv: document.getElementById('btn-export-csv'),
             btnRefresh: document.getElementById('btn-refresh-results'),
@@ -23,12 +25,23 @@ const ResultsView = {
     },
 
     bindEvents() {
-        // Job selection
+        // Job selection - header dropdown
         this.els.jobSelect.addEventListener('change', (e) => {
             this.currentJobId = e.target.value;
+            this.syncJobSelects();
             this.expandedRows.clear();
             this.loadResults();
         });
+
+        // Job selection - main centered dropdown
+        if (this.els.jobSelectMain) {
+            this.els.jobSelectMain.addEventListener('change', (e) => {
+                this.currentJobId = e.target.value;
+                this.syncJobSelects();
+                this.expandedRows.clear();
+                this.loadResults();
+            });
+        }
 
         // Export buttons
         this.els.btnExportJson.addEventListener('click', () => this.exportJson());
@@ -51,21 +64,36 @@ const ResultsView = {
             `<option value="${job.id}">${this.escapeHtml(job.name)} (${job.success_count} results)</option>`
         ).join('');
 
-        this.els.jobSelect.innerHTML = `<option value="">Select a job...</option>${options}`;
+        const optionsHtml = `<option value="">Select a job...</option>${options}`;
+
+        // Update both dropdowns
+        this.els.jobSelect.innerHTML = optionsHtml;
+        if (this.els.jobSelectMain) {
+            this.els.jobSelectMain.innerHTML = optionsHtml;
+        }
 
         // Restore selection if valid
-        if (this.currentJobId) {
-            this.els.jobSelect.value = this.currentJobId;
+        this.syncJobSelects();
+    },
+
+    syncJobSelects() {
+        // Keep both selects in sync
+        if (this.els.jobSelect) {
+            this.els.jobSelect.value = this.currentJobId || '';
+        }
+        if (this.els.jobSelectMain) {
+            this.els.jobSelectMain.value = this.currentJobId || '';
         }
     },
 
     async loadResults() {
         if (!this.currentJobId) {
-            this.renderEmptyState('Select a job to view results');
+            this.showEmptyState();
             return;
         }
 
-        // Show loading
+        // Hide empty state, show loading
+        this.hideEmptyState();
         this.els.resultsContainer.innerHTML = `
             <div class="results-loading">
                 <span>Loading results...</span>
@@ -77,7 +105,7 @@ const ResultsView = {
             this.results = result.results || [];
 
             if (this.results.length === 0) {
-                this.renderEmptyState('No results yet. Run a job to see scraped data here.');
+                this.renderNoResults();
                 return;
             }
 
@@ -85,19 +113,58 @@ const ResultsView = {
 
         } catch (error) {
             console.error('Failed to load results:', error);
-            this.renderEmptyState(`Failed to load results: ${error.message}`, true);
+            this.renderError(`Failed to load results: ${error.message}`);
         }
     },
 
-    renderEmptyState(message, isError = false) {
+    showEmptyState() {
+        // Show the centered empty state with job selector
+        if (this.els.emptyState) {
+            this.els.emptyState.style.display = 'flex';
+        }
+        // Clear any results
+        const existingResults = this.els.resultsContainer.querySelector('.results-stats, .results-table-wrapper, .results-loading');
+        if (existingResults) {
+            this.els.resultsContainer.innerHTML = '';
+            this.els.resultsContainer.appendChild(this.els.emptyState);
+        }
+    },
+
+    hideEmptyState() {
+        if (this.els.emptyState) {
+            this.els.emptyState.style.display = 'none';
+        }
+    },
+
+    renderNoResults() {
+        this.hideEmptyState();
         this.els.resultsContainer.innerHTML = `
-            <div class="results-empty" style="color: ${isError ? 'var(--color-error)' : 'var(--color-text-muted)'}">
-                <p>${message}</p>
+            <div class="results-empty">
+                <div class="empty-state-centered">
+                    <div class="empty-icon">📭</div>
+                    <h3>No results yet</h3>
+                    <p>Run the job to see scraped data here</p>
+                </div>
+            </div>
+        `;
+    },
+
+    renderError(message) {
+        this.hideEmptyState();
+        this.els.resultsContainer.innerHTML = `
+            <div class="results-empty" style="color: var(--color-error)">
+                <div class="empty-state-centered">
+                    <div class="empty-icon">⚠️</div>
+                    <h3>Error loading results</h3>
+                    <p>${message}</p>
+                </div>
             </div>
         `;
     },
 
     renderResults() {
+        this.hideEmptyState();
+
         // Extract all unique field names from results
         const allFields = new Set();
         this.results.forEach(r => {

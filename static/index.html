@@ -135,8 +135,18 @@
                 </header>
 
                 <div class="results-container" id="results-container">
-                    <div class="results-empty">
-                        <p>Select a job to view results</p>
+                    <div class="results-empty" id="results-empty-state">
+                        <div class="empty-state-centered">
+                            <div class="empty-icon">📊</div>
+                            <h3>View extraction results</h3>
+                            <p>Select a job to see the scraped data</p>
+                            <div class="empty-state-select">
+                                <label for="results-job-select-main">Choose a job:</label>
+                                <select id="results-job-select-main" class="select select-lg">
+                                    <option value="">Select a job...</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
