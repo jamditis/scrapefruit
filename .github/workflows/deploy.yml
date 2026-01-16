@@ -17,9 +17,32 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e  # Exit on any error
+
+            # Clone repo if it doesn't exist, otherwise pull
+            if [ ! -d "/opt/scrapefruit/.git" ]; then
+              echo "Cloning repository..."
+              rm -rf /opt/scrapefruit
+              git clone https://github.com/jamditis/scrapefruit.git /opt/scrapefruit
+            else
+              echo "Pulling latest changes..."
+              cd /opt/scrapefruit
+              git fetch origin
+              git reset --hard origin/master
+            fi
+
             cd /opt/scrapefruit
-            git pull origin master
+
+            # Create venv if it doesn't exist
+            if [ ! -d "venv" ]; then
+              echo "Creating virtual environment..."
+              python3 -m venv venv
+            fi
+
             source venv/bin/activate
             pip install -r requirements.txt --quiet
+
+            # Restart service
             systemctl restart scrapefruit
+
             echo "Deployed successfully at $(date)"
