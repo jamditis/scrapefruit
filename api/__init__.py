@@ -33,6 +33,7 @@ def create_app():
     # Configuration
     app.config["SECRET_KEY"] = config.SECRET_KEY
     app.config["DEBUG"] = config.FLASK_DEBUG
+    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max upload size
 
     # Enable CORS for all routes
     CORS(app)

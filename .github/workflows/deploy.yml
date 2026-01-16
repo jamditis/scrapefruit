@@ -42,6 +42,16 @@ jobs:
             source venv/bin/activate
             pip install -r requirements.txt --quiet
 
+            # Configure nginx for larger uploads if nginx is present
+            if command -v nginx &> /dev/null; then
+              echo "Configuring nginx for larger uploads..."
+              # Add client_max_body_size to nginx config if not present
+              if ! grep -q "client_max_body_size" /etc/nginx/nginx.conf 2>/dev/null; then
+                sed -i '/http {/a \    client_max_body_size 50M;' /etc/nginx/nginx.conf
+                nginx -t && systemctl reload nginx
+              fi
+            fi
+
             # Restart service
             systemctl restart scrapefruit
 
