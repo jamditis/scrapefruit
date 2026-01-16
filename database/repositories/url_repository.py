@@ -196,6 +196,39 @@ class UrlRepository:
                 .count()
             )
 
+    def count_failed(self, job_id: str) -> int:
+        """Count failed URLs for a job."""
+        with session_scope() as session:
+            return (
+                session.query(Url)
+                .filter(Url.job_id == job_id, Url.status == Url.STATUS_FAILED)
+                .count()
+            )
+
+    def get_by_id(self, url_id: str) -> Optional[Url]:
+        """Get a URL by ID. Alias for get_url."""
+        return self.get_url(url_id)
+
+    def reset_to_pending(self, url_id: str) -> Optional[Url]:
+        """
+        Reset a single URL back to pending status for retry.
+
+        Clears error state but preserves attempt count.
+        """
+        with session_scope() as session:
+            url = session.query(Url).filter(Url.id == url_id).first()
+            if not url:
+                return None
+
+            url.status = Url.STATUS_PENDING
+            url.error_type = None
+            url.error_message = None
+
+            session.flush()
+            session.refresh(url)
+            session.expunge(url)
+            return url
+
     def reset_all_urls(self, job_id: str) -> int:
         """
         Reset all URLs in a job back to pending status.

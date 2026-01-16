@@ -34,6 +34,10 @@ DEFAULT_RETRY_COUNT = 3
 DEFAULT_DELAY_MIN = 1000  # ms
 DEFAULT_DELAY_MAX = 3000  # ms
 
+# Per-URL timeout to prevent stuck jobs (seconds)
+# If a single URL takes longer than this, it's marked as failed and skipped
+DEFAULT_URL_TIMEOUT = 120  # 2 minutes per URL
+
 # User agents for rotation
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

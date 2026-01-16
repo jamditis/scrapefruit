@@ -58,20 +58,27 @@ class ResultRepository:
         job_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Result]:
-        """List results for a job."""
+    ) -> List[dict]:
+        """
+        List results for a job.
+
+        Returns list of dicts (not Result objects) to avoid detached session issues
+        with the url_record relationship.
+        """
+        from sqlalchemy.orm import joinedload
+
         with session_scope() as session:
             results = (
                 session.query(Result)
+                .options(joinedload(Result.url_record))
                 .filter(Result.job_id == job_id)
                 .order_by(Result.scraped_at.desc())
                 .offset(offset)
                 .limit(limit)
                 .all()
             )
-            for result in results:
-                session.expunge(result)
-            return results
+            # Convert to dicts while still in session (before relationships become detached)
+            return [r.to_dict() for r in results]
 
     def delete_result(self, result_id: str) -> bool:
         """Delete a result."""

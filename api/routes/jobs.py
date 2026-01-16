@@ -316,8 +316,9 @@ def list_results(job_id: str):
     result_repo = get_container().resolve("result_repository")
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
+    # list_results now returns dicts directly (already converted in the repository)
     results = result_repo.list_results(job_id, limit=limit, offset=offset)
-    return jsonify({"results": [r.to_dict() for r in results]})
+    return jsonify({"results": results})
 
 
 @jobs_bp.route("/<job_id>/progress", methods=["GET"])

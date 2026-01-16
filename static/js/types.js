@@ -18,7 +18,7 @@
 
 /**
  * Job mode values.
- * @typedef {'list' | 'discover' | 'sitemap'} JobMode
+ * @typedef {'single' | 'list' | 'crawl'} JobMode
  */
 
 /**
@@ -257,7 +257,7 @@ const JOB_STATUSES = Object.freeze([
  * Valid job modes.
  * @type {readonly JobMode[]}
  */
-const JOB_MODES = Object.freeze(['list', 'discover', 'sitemap']);
+const JOB_MODES = Object.freeze(['single', 'list', 'crawl']);
 
 /**
  * Valid URL statuses.

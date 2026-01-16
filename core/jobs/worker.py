@@ -2,6 +2,7 @@
 
 import time
 import random
+import concurrent.futures
 from typing import Dict, Optional, Callable, Any, List
 from datetime import datetime
 
@@ -9,6 +10,10 @@ from database.repositories.url_repository import UrlRepository
 from database.repositories.rule_repository import RuleRepository
 from database.repositories.result_repository import ResultRepository
 from core.scraping.engine import ScrapingEngine
+import config
+
+# Maximum retries for failed URLs at end of job
+MAX_END_RETRIES = 1
 
 
 class JobWorker:
@@ -64,6 +69,7 @@ class JobWorker:
         Main worker loop.
 
         Processes URLs until none remain or stop is requested.
+        Failed URLs are retried once at the end of the job.
         """
         self._running = True
         self._stop_requested = False
@@ -91,19 +97,26 @@ class JobWorker:
             cascade_order = cascade_config.get("order", [])
             self._emit_log("info", f"Cascade mode: {' → '.join(cascade_order) if cascade_order else 'default'}")
 
+        # Track failed URLs for retry
+        failed_urls = []
+
         while self._running and not self._stop_requested:
             # Get next pending URL
             url_record = self.url_repo.get_next_pending(self.job_id)
 
             if not url_record:
-                # No more URLs to process
-                self._emit_log("info", f"Job complete. Processed {processed} URLs.")
+                # No more pending URLs - try retrying failed ones
                 break
 
             processed += 1
             self._emit_log("info", f"[{processed}/{pending_count}] Fetching: {url_record.url[:80]}...")
 
-            self._process_url(url_record, rules_dicts, cascade_config, processed, pending_count)
+            success = self._process_url_with_timeout(
+                url_record, rules_dicts, cascade_config, processed, pending_count
+            )
+
+            if not success:
+                failed_urls.append(url_record.id)
 
             # Delay between requests
             if not self._stop_requested:
@@ -114,9 +127,134 @@ class JobWorker:
                 self._emit_log("debug", f"Waiting {delay}ms before next request...")
                 time.sleep(delay / 1000)
 
+        # Retry failed URLs once at the end
+        if failed_urls and not self._stop_requested:
+            self._retry_failed_urls(failed_urls, rules_dicts, cascade_config)
+
+        failed_count = self.url_repo.count_failed(self.job_id)
+        success_count = processed - failed_count
+
+        self._emit_log("info", f"Job complete. {success_count}/{processed} URLs succeeded.", {
+            "total_processed": processed,
+            "success_count": success_count,
+            "failed_count": failed_count,
+        })
+
         self._running = False
 
-    def _process_url(self, url_record, rules: list, cascade_config: Optional[Dict] = None, current: int = 0, total: int = 0):
+    def _retry_failed_urls(self, failed_url_ids: List[str], rules: list, cascade_config: Optional[Dict]):
+        """
+        Retry failed URLs once at end of job.
+
+        Args:
+            failed_url_ids: List of URL IDs that failed on first attempt
+            rules: Extraction rules
+            cascade_config: Cascade configuration
+        """
+        if not failed_url_ids:
+            return
+
+        self._emit_log("info", f"Retrying {len(failed_url_ids)} failed URLs...")
+
+        retried = 0
+        recovered = 0
+
+        for url_id in failed_url_ids:
+            if self._stop_requested:
+                break
+
+            # Reset URL to pending for retry
+            self.url_repo.reset_to_pending(url_id)
+            url_record = self.url_repo.get_by_id(url_id)
+
+            if not url_record:
+                continue
+
+            retried += 1
+            self._emit_log("info", f"Retry [{retried}/{len(failed_url_ids)}]: {url_record.url[:60]}...")
+
+            success = self._process_url_with_timeout(
+                url_record, rules, cascade_config, retried, len(failed_url_ids), is_retry=True
+            )
+
+            if success:
+                recovered += 1
+
+            # Short delay between retries
+            if not self._stop_requested:
+                time.sleep(2)
+
+        self._emit_log("info", f"Retry complete. Recovered {recovered}/{retried} URLs.")
+
+    def _process_url_with_timeout(
+        self,
+        url_record,
+        rules: list,
+        cascade_config: Optional[Dict] = None,
+        current: int = 0,
+        total: int = 0,
+        is_retry: bool = False,
+    ) -> bool:
+        """
+        Process URL with a hard timeout to prevent hangs.
+
+        Uses a ThreadPoolExecutor with timeout to ensure we don't get stuck
+        on any single URL forever.
+
+        Args:
+            url_record: URL record to process
+            rules: Extraction rules
+            cascade_config: Cascade configuration
+            current: Current URL index
+            total: Total URL count
+            is_retry: Whether this is a retry attempt
+
+        Returns:
+            True if URL was processed successfully, False otherwise
+        """
+        url_timeout = self.settings.get("url_timeout", config.DEFAULT_URL_TIMEOUT)
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(
+                    self._process_url,
+                    url_record, rules, cascade_config, current, total
+                )
+
+                try:
+                    # Wait for completion with timeout
+                    success = future.result(timeout=url_timeout)
+                    return success if success is not None else False
+
+                except concurrent.futures.TimeoutError:
+                    # URL processing timed out
+                    self._emit_log("warning", f"URL timed out after {url_timeout}s, moving on", {
+                        "url": url_record.url,
+                        "timeout_seconds": url_timeout,
+                    })
+
+                    # Mark as failed due to timeout
+                    self.url_repo.mark_failed(
+                        url_record.id,
+                        error_type="timeout",
+                        error_message=f"Processing timed out after {url_timeout} seconds",
+                    )
+
+                    if self.on_url_complete:
+                        self.on_url_complete(
+                            self.job_id,
+                            url_record.id,
+                            False,
+                            {"error": f"Timeout after {url_timeout}s"}
+                        )
+
+                    return False
+
+        except Exception as e:
+            self._emit_log("error", f"Unexpected error in timeout wrapper: {str(e)}")
+            return False
+
+    def _process_url(self, url_record, rules: list, cascade_config: Optional[Dict] = None, current: int = 0, total: int = 0) -> bool:
         """Process a single URL with detailed logging."""
         url_id = url_record.id
         url = url_record.url
@@ -170,6 +308,8 @@ class JobWorker:
                 if self.on_url_complete:
                     self.on_url_complete(self.job_id, url_id, True, result.data)
 
+                return True
+
             else:
                 # Log the failure with details
                 error_type = result.poison_pill or "extraction_failed"
@@ -190,6 +330,8 @@ class JobWorker:
 
                 if self.on_url_complete:
                     self.on_url_complete(self.job_id, url_id, False, {"error": result.error})
+
+                return False
 
         except Exception as e:
             # Unexpected error
@@ -212,6 +354,8 @@ class JobWorker:
 
             if self.on_url_complete:
                 self.on_url_complete(self.job_id, url_id, False, {"error": str(e)})
+
+            return False
 
     def stop(self):
         """Request worker to stop."""

@@ -11,9 +11,16 @@ from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 from playwright_stealth import Stealth
 
 import config
+from core.scraping.fetchers.playwright_subprocess import (
+    SubprocessPlaywrightFetcher,
+    SubprocessPlaywrightResult,
+)
 
 # Thread-local storage for event loop reuse
 _thread_local = threading.local()
+
+# Flag to track if we've hit the signal error (per-process)
+_use_subprocess_fallback = False
 
 
 @dataclass
@@ -181,7 +188,8 @@ class PlaywrightFetcher:
         """
         Synchronous wrapper for fetch_async.
 
-        Reuses thread-local event loop to prevent memory leaks.
+        Automatically falls back to subprocess execution if signal threading
+        issues are detected (common when Flask runs in a daemon thread).
 
         Args:
             url: The URL to fetch
@@ -194,6 +202,14 @@ class PlaywrightFetcher:
         Returns:
             PlaywrightResult with success status and content
         """
+        global _use_subprocess_fallback
+
+        # If we've previously hit signal errors, go straight to subprocess
+        if _use_subprocess_fallback:
+            return self._fetch_via_subprocess(
+                url, timeout, wait_for, wait_for_timeout, take_screenshot
+            )
+
         last_error = None
 
         for attempt in range(retry_count + 1):
@@ -241,11 +257,14 @@ class PlaywrightFetcher:
 
             except Exception as e:
                 last_error = str(e)
-                # Handle signal error gracefully
+
+                # Handle signal error by switching to subprocess fallback
                 if "signal only works in main thread" in last_error:
-                    last_error = "Playwright unavailable in threaded context. Try HTTP or restart the application."
-                    # Don't retry for this type of error
-                    break
+                    _use_subprocess_fallback = True
+                    # Retry immediately with subprocess
+                    return self._fetch_via_subprocess(
+                        url, timeout, wait_for, wait_for_timeout, take_screenshot
+                    )
 
                 if attempt >= retry_count:
                     break
@@ -256,6 +275,43 @@ class PlaywrightFetcher:
             success=False,
             method="playwright",
             error=last_error,
+        )
+
+    def _fetch_via_subprocess(
+        self,
+        url: str,
+        timeout: int,
+        wait_for: Optional[str],
+        wait_for_timeout: int,
+        take_screenshot: bool,
+    ) -> PlaywrightResult:
+        """
+        Fetch using subprocess to avoid signal threading issues.
+
+        This runs Playwright in a separate Python process where it IS the
+        main thread, avoiding the signal.signal() restriction.
+        """
+        subprocess_fetcher = SubprocessPlaywrightFetcher(
+            user_agents=getattr(config, "USER_AGENTS", [])
+        )
+
+        result = subprocess_fetcher.fetch(
+            url=url,
+            timeout=timeout,
+            wait_for=wait_for,
+            wait_for_timeout=wait_for_timeout,
+            take_screenshot=take_screenshot,
+        )
+
+        # Convert SubprocessPlaywrightResult to PlaywrightResult
+        return PlaywrightResult(
+            success=result.success,
+            html=result.html,
+            status_code=result.status_code,
+            method="playwright",
+            error=result.error,
+            response_time_ms=result.response_time_ms,
+            screenshot=result.screenshot,
         )
 
     def _run_in_reusable_loop(
