@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import uuid4
 
-from database.connection import get_session
+from database.connection import session_scope
 from models.job import Job
 
 
@@ -21,8 +21,7 @@ class JobRepository:
         settings: Optional[dict] = None,
     ) -> Job:
         """Create a new job."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             job = Job(
                 id=job_id,
                 name=name,
@@ -33,17 +32,19 @@ class JobRepository:
                 created_at=datetime.utcnow(),
             )
             session.add(job)
-            session.commit()
+            session.flush()
             session.refresh(job)
+            # Expunge to detach from session before it closes
+            session.expunge(job)
             return job
-        except Exception:
-            session.rollback()
-            raise
 
     def get_job(self, job_id: str) -> Optional[Job]:
         """Get a job by ID."""
-        session = get_session()
-        return session.query(Job).filter(Job.id == job_id).first()
+        with session_scope() as session:
+            job = session.query(Job).filter(Job.id == job_id).first()
+            if job:
+                session.expunge(job)
+            return job
 
     def list_jobs(
         self,
@@ -53,17 +54,20 @@ class JobRepository:
         offset: int = 0,
     ) -> List[Job]:
         """List jobs with optional filtering."""
-        session = get_session()
-        query = session.query(Job)
+        with session_scope() as session:
+            query = session.query(Job)
 
-        if status:
-            query = query.filter(Job.status == status)
-        elif not include_archived:
-            # By default, exclude archived jobs unless explicitly requested
-            query = query.filter(Job.status != Job.STATUS_ARCHIVED)
+            if status:
+                query = query.filter(Job.status == status)
+            elif not include_archived:
+                # By default, exclude archived jobs unless explicitly requested
+                query = query.filter(Job.status != Job.STATUS_ARCHIVED)
 
-        query = query.order_by(Job.created_at.desc())
-        return query.offset(offset).limit(limit).all()
+            query = query.order_by(Job.created_at.desc())
+            jobs = query.offset(offset).limit(limit).all()
+            for job in jobs:
+                session.expunge(job)
+            return jobs
 
     def archive_job(self, job_id: str) -> Optional[Job]:
         """Archive a job (soft delete - keeps data but hides from main list)."""
@@ -75,8 +79,7 @@ class JobRepository:
 
     def update_job(self, job_id: str, **kwargs) -> Optional[Job]:
         """Update job fields."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             job = session.query(Job).filter(Job.id == job_id).first()
             if not job:
                 return None
@@ -87,26 +90,19 @@ class JobRepository:
                 elif hasattr(job, key):
                     setattr(job, key, value)
 
-            session.commit()
+            session.flush()
             session.refresh(job)
+            session.expunge(job)
             return job
-        except Exception:
-            session.rollback()
-            raise
 
     def delete_job(self, job_id: str) -> bool:
         """Delete a job and all associated data."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             job = session.query(Job).filter(Job.id == job_id).first()
             if job:
                 session.delete(job)
-                session.commit()
                 return True
             return False
-        except Exception:
-            session.rollback()
-            raise
 
     def update_status(self, job_id: str, status: str) -> Optional[Job]:
         """Update job status with timestamp."""
@@ -123,8 +119,7 @@ class JobRepository:
 
     def increment_progress(self, job_id: str, success: bool = True) -> Optional[Job]:
         """Increment progress counters."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             job = session.query(Job).filter(Job.id == job_id).first()
             if not job:
                 return None
@@ -140,9 +135,7 @@ class JobRepository:
                 job.status = Job.STATUS_COMPLETED
                 job.completed_at = datetime.utcnow()
 
-            session.commit()
+            session.flush()
             session.refresh(job)
+            session.expunge(job)
             return job
-        except Exception:
-            session.rollback()
-            raise

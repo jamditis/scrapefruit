@@ -3,7 +3,7 @@
 from typing import Optional, Dict
 from datetime import datetime
 
-from database.connection import get_session
+from database.connection import session_scope
 from models.settings import AppSetting
 import config
 
@@ -25,9 +25,9 @@ class SettingsRepository:
 
     def get(self, key: str) -> Optional[str]:
         """Get a setting value."""
-        session = get_session()
-        setting = session.query(AppSetting).filter(AppSetting.key == key).first()
-        return setting.value if setting else None
+        with session_scope() as session:
+            setting = session.query(AppSetting).filter(AppSetting.key == key).first()
+            return setting.value if setting else None
 
     def get_bool(self, key: str, default: bool = False) -> bool:
         """Get a boolean setting."""
@@ -48,8 +48,7 @@ class SettingsRepository:
 
     def set(self, key: str, value: str) -> AppSetting:
         """Set a setting value."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             setting = session.query(AppSetting).filter(AppSetting.key == key).first()
             if setting:
                 setting.value = value
@@ -58,48 +57,37 @@ class SettingsRepository:
                 setting = AppSetting(key=key, value=value)
                 session.add(setting)
 
-            session.commit()
+            session.flush()
             session.refresh(setting)
+            session.expunge(setting)
             return setting
-        except Exception:
-            session.rollback()
-            raise
 
     def get_all(self) -> Dict[str, str]:
         """Get all settings as a dictionary."""
-        session = get_session()
-        settings = session.query(AppSetting).all()
-        return {s.key: s.value for s in settings}
+        with session_scope() as session:
+            settings = session.query(AppSetting).all()
+            return {s.key: s.value for s in settings}
 
     def delete(self, key: str) -> bool:
         """Delete a setting."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             setting = session.query(AppSetting).filter(AppSetting.key == key).first()
             if setting:
                 session.delete(setting)
-                session.commit()
                 return True
             return False
-        except Exception:
-            session.rollback()
-            raise
 
     def reset_defaults(self) -> Dict[str, str]:
         """Reset all settings to defaults."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             # Delete all settings
             session.query(AppSetting).delete()
-            session.commit()
+            session.flush()
 
             # Re-seed defaults
             for key, value in self.DEFAULTS.items():
                 setting = AppSetting(key=key, value=value)
                 session.add(setting)
 
-            session.commit()
-            return self.get_all()
-        except Exception:
-            session.rollback()
-            raise
+        # Return fresh query results after commit
+        return self.get_all()

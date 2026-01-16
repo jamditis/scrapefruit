@@ -18,6 +18,7 @@ Usage:
 
 import os
 import json
+import threading
 import time
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
@@ -131,7 +132,7 @@ class LLMService:
         try:
             import urllib.request
             req = urllib.request.Request(f"{self.ollama_base_url}/api/tags", method="GET")
-            with urllib.request.urlopen(req, timeout=2) as response:
+            with urllib.request.urlopen(req, timeout=5) as response:
                 return response.status == 200
         except Exception:
             return False
@@ -396,13 +397,17 @@ Answer:"""
         }
 
 
-# Singleton instance
+# Singleton instance with thread-safe initialization
 _llm_service: Optional[LLMService] = None
+_llm_lock = threading.Lock()
 
 
 def get_llm_service() -> LLMService:
-    """Get the singleton LLM service instance."""
+    """Get the singleton LLM service instance (thread-safe)."""
     global _llm_service
     if _llm_service is None:
-        _llm_service = LLMService()
+        with _llm_lock:
+            # Double-check after acquiring lock
+            if _llm_service is None:
+                _llm_service = LLMService()
     return _llm_service

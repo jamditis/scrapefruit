@@ -1,5 +1,7 @@
 """SQLite database connection and session management."""
 
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.pool import NullPool
@@ -36,6 +38,30 @@ def remove_session():
     after each request or operation completes.
     """
     Session.remove()
+
+
+@contextmanager
+def session_scope():
+    """Context manager for database sessions with automatic cleanup.
+
+    Usage:
+        with session_scope() as session:
+            user = session.query(User).first()
+            session.add(new_item)
+            # commit happens automatically on success
+
+    This ensures sessions are properly closed even on exceptions,
+    preventing connection leaks in background workers.
+    """
+    session = get_session()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        remove_session()
 
 
 def init_db():

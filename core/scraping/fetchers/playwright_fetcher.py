@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+import threading
 import time
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
@@ -10,6 +11,9 @@ from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 from playwright_stealth import Stealth
 
 import config
+
+# Thread-local storage for event loop reuse
+_thread_local = threading.local()
 
 
 @dataclass
@@ -158,6 +162,13 @@ class PlaywrightFetcher:
                 if context:
                     await context.close()
 
+    def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
+        """Get or create a thread-local event loop for reuse."""
+        if not hasattr(_thread_local, 'loop') or _thread_local.loop.is_closed():
+            _thread_local.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_thread_local.loop)
+        return _thread_local.loop
+
     def fetch(
         self,
         url: str,
@@ -165,36 +176,53 @@ class PlaywrightFetcher:
         wait_for: Optional[str] = None,
         wait_for_timeout: int = 5000,
         take_screenshot: bool = False,
+        retry_count: int = 0,
     ) -> PlaywrightResult:
         """
         Synchronous wrapper for fetch_async.
 
-        Creates event loop if needed. Handles threading issues with signal.
+        Reuses thread-local event loop to prevent memory leaks.
+
+        Args:
+            url: The URL to fetch
+            timeout: Navigation timeout in milliseconds
+            wait_for: Optional CSS selector to wait for
+            wait_for_timeout: Timeout for wait_for selector
+            take_screenshot: Whether to capture a screenshot
+            retry_count: Number of retry attempts on failure
+
+        Returns:
+            PlaywrightResult with success status and content
         """
-        import threading
+        last_error = None
 
-        # Check if we're in a thread (Flask runs in threads)
-        is_main_thread = threading.current_thread() is threading.main_thread()
-
-        try:
-            # Try to get existing loop
+        for attempt in range(retry_count + 1):
             try:
-                loop = asyncio.get_running_loop()
-                # If there's a running loop, we need to run in a new thread
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(self._run_in_new_loop, url, timeout, wait_for, wait_for_timeout, take_screenshot)
-                    return future.result(timeout=timeout // 1000 + 30)
-            except RuntimeError:
-                # No running loop
-                pass
+                # Try to get existing loop
+                try:
+                    loop = asyncio.get_running_loop()
+                    # If there's a running loop, we need to run in a new thread
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            self._run_in_reusable_loop,
+                            url, timeout, wait_for, wait_for_timeout, take_screenshot
+                        )
+                        result = future.result(timeout=timeout // 1000 + 30)
+                        if result.success or attempt >= retry_count:
+                            return result
+                        last_error = result.error
+                        # Exponential backoff before retry
+                        time.sleep((2 ** attempt) * 0.5)
+                        continue
+                except RuntimeError:
+                    # No running loop
+                    pass
 
-            # Create new event loop for this thread
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+                # Reuse thread-local event loop
+                loop = self._get_or_create_loop()
 
-            try:
-                return loop.run_until_complete(
+                result = loop.run_until_complete(
                     self.fetch_async(
                         url,
                         timeout=timeout,
@@ -203,21 +231,34 @@ class PlaywrightFetcher:
                         take_screenshot=take_screenshot,
                     )
                 )
-            finally:
-                loop.close()
 
-        except Exception as e:
-            error_msg = str(e)
-            # Handle signal error gracefully
-            if "signal only works in main thread" in error_msg:
-                error_msg = "Playwright unavailable in threaded context. Try HTTP or restart the application."
-            return PlaywrightResult(
-                success=False,
-                method="playwright",
-                error=error_msg,
-            )
+                if result.success or attempt >= retry_count:
+                    return result
 
-    def _run_in_new_loop(
+                last_error = result.error
+                # Exponential backoff before retry
+                time.sleep((2 ** attempt) * 0.5)
+
+            except Exception as e:
+                last_error = str(e)
+                # Handle signal error gracefully
+                if "signal only works in main thread" in last_error:
+                    last_error = "Playwright unavailable in threaded context. Try HTTP or restart the application."
+                    # Don't retry for this type of error
+                    break
+
+                if attempt >= retry_count:
+                    break
+                # Exponential backoff before retry
+                time.sleep((2 ** attempt) * 0.5)
+
+        return PlaywrightResult(
+            success=False,
+            method="playwright",
+            error=last_error,
+        )
+
+    def _run_in_reusable_loop(
         self,
         url: str,
         timeout: int,
@@ -225,21 +266,39 @@ class PlaywrightFetcher:
         wait_for_timeout: int,
         take_screenshot: bool,
     ) -> PlaywrightResult:
-        """Run fetch in a completely new event loop in a separate thread."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(
-                self.fetch_async(url, timeout, wait_for, wait_for_timeout, take_screenshot)
-            )
-        finally:
-            loop.close()
+        """Run fetch using thread-local reusable event loop."""
+        loop = self._get_or_create_loop()
+        return loop.run_until_complete(
+            self.fetch_async(url, timeout, wait_for, wait_for_timeout, take_screenshot)
+        )
 
     async def close(self):
         """Close the browser."""
         if self.browser:
             await self.browser.close()
             self.browser = None
+
+    def cleanup(self):
+        """
+        Synchronous cleanup for thread shutdown.
+
+        Call this when the thread is shutting down to properly close
+        the browser and event loop.
+        """
+        if self.browser:
+            try:
+                loop = self._get_or_create_loop()
+                if not loop.is_closed():
+                    loop.run_until_complete(self.close())
+            except Exception:
+                pass
+
+        # Close the thread-local event loop
+        if hasattr(_thread_local, 'loop') and not _thread_local.loop.is_closed():
+            try:
+                _thread_local.loop.close()
+            except Exception:
+                pass
 
     def __del__(self):
         """Cleanup on destruction."""
@@ -254,6 +313,11 @@ class PlaywrightFetcher:
                 except RuntimeError:
                     # No running loop
                     pass
+
+                # Try to use the thread-local loop
+                if hasattr(_thread_local, 'loop') and not _thread_local.loop.is_closed():
+                    _thread_local.loop.run_until_complete(self.close())
+                    return
 
                 # Try to get an existing event loop
                 try:

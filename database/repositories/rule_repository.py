@@ -3,7 +3,7 @@
 from typing import Optional, List
 from uuid import uuid4
 
-from database.connection import get_session
+from database.connection import session_scope
 from models.rule import ExtractionRule
 
 
@@ -23,8 +23,7 @@ class RuleRepository:
         template_id: Optional[str] = None,
     ) -> ExtractionRule:
         """Create a new extraction rule."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             # Get max display order for this job
             existing = session.query(ExtractionRule).filter(
                 ExtractionRule.job_id == job_id
@@ -45,17 +44,18 @@ class RuleRepository:
                 display_order=max_order + 1,
             )
             session.add(rule)
-            session.commit()
+            session.flush()
             session.refresh(rule)
+            session.expunge(rule)
             return rule
-        except Exception:
-            session.rollback()
-            raise
 
     def get_rule(self, rule_id: str) -> Optional[ExtractionRule]:
         """Get a rule by ID."""
-        session = get_session()
-        return session.query(ExtractionRule).filter(ExtractionRule.id == rule_id).first()
+        with session_scope() as session:
+            rule = session.query(ExtractionRule).filter(ExtractionRule.id == rule_id).first()
+            if rule:
+                session.expunge(rule)
+            return rule
 
     def list_rules(
         self,
@@ -63,20 +63,22 @@ class RuleRepository:
         template_id: Optional[str] = None,
     ) -> List[ExtractionRule]:
         """List rules for a job or template."""
-        session = get_session()
-        query = session.query(ExtractionRule)
+        with session_scope() as session:
+            query = session.query(ExtractionRule)
 
-        if job_id:
-            query = query.filter(ExtractionRule.job_id == job_id)
-        if template_id:
-            query = query.filter(ExtractionRule.template_id == template_id)
+            if job_id:
+                query = query.filter(ExtractionRule.job_id == job_id)
+            if template_id:
+                query = query.filter(ExtractionRule.template_id == template_id)
 
-        return query.order_by(ExtractionRule.display_order).all()
+            rules = query.order_by(ExtractionRule.display_order).all()
+            for rule in rules:
+                session.expunge(rule)
+            return rules
 
     def update_rule(self, rule_id: str, **kwargs) -> Optional[ExtractionRule]:
         """Update rule fields."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             rule = session.query(ExtractionRule).filter(ExtractionRule.id == rule_id).first()
             if not rule:
                 return None
@@ -85,31 +87,23 @@ class RuleRepository:
                 if hasattr(rule, key):
                     setattr(rule, key, value)
 
-            session.commit()
+            session.flush()
             session.refresh(rule)
+            session.expunge(rule)
             return rule
-        except Exception:
-            session.rollback()
-            raise
 
     def delete_rule(self, rule_id: str) -> bool:
         """Delete a rule."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             rule = session.query(ExtractionRule).filter(ExtractionRule.id == rule_id).first()
             if rule:
                 session.delete(rule)
-                session.commit()
                 return True
             return False
-        except Exception:
-            session.rollback()
-            raise
 
     def reorder_rules(self, job_id: str, rule_ids: List[str]) -> List[ExtractionRule]:
         """Reorder rules for a job."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             rules = []
             for i, rule_id in enumerate(rule_ids):
                 rule = session.query(ExtractionRule).filter(
@@ -120,16 +114,14 @@ class RuleRepository:
                     rule.display_order = i
                     rules.append(rule)
 
-            session.commit()
+            session.flush()
+            for rule in rules:
+                session.expunge(rule)
             return rules
-        except Exception:
-            session.rollback()
-            raise
 
     def copy_rules_from_template(self, template_id: str, job_id: str) -> List[ExtractionRule]:
         """Copy rules from a template to a job."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             template_rules = self.list_rules(template_id=template_id)
             new_rules = []
 
@@ -150,10 +142,8 @@ class RuleRepository:
                 session.add(rule)
                 new_rules.append(rule)
 
-            session.commit()
+            session.flush()
             for rule in new_rules:
                 session.refresh(rule)
+                session.expunge(rule)
             return new_rules
-        except Exception:
-            session.rollback()
-            raise

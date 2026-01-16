@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+import threading
 import time
 from typing import Optional, Dict, Any, TYPE_CHECKING
 from dataclasses import dataclass
@@ -19,6 +20,9 @@ if TYPE_CHECKING:
     from pyppeteer.page import Page
 
 import config
+
+# Thread-local storage for event loop reuse
+_thread_local = threading.local()
 
 
 @dataclass
@@ -221,6 +225,13 @@ class PuppeteerFetcher:
                 if page:
                     await page.close()
 
+    def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
+        """Get or create a thread-local event loop for reuse."""
+        if not hasattr(_thread_local, 'loop') or _thread_local.loop.is_closed():
+            _thread_local.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_thread_local.loop)
+        return _thread_local.loop
+
     def fetch(
         self,
         url: str,
@@ -228,40 +239,52 @@ class PuppeteerFetcher:
         wait_for: Optional[str] = None,
         wait_for_timeout: int = 5000,
         take_screenshot: bool = False,
+        retry_count: int = 0,
     ) -> PuppeteerResult:
         """
         Synchronous wrapper for fetch_async.
 
-        Creates event loop if needed. Handles threading issues.
+        Reuses thread-local event loop to prevent memory leaks.
+
+        Args:
+            url: The URL to fetch
+            timeout: Navigation timeout in milliseconds
+            wait_for: Optional CSS selector to wait for
+            wait_for_timeout: Timeout for wait_for selector
+            take_screenshot: Whether to capture a screenshot
+            retry_count: Number of retry attempts on failure
+
+        Returns:
+            PuppeteerResult with success status and content
         """
-        import threading
+        last_error = None
 
-        try:
-            # Check if there's already a running loop
+        for attempt in range(retry_count + 1):
             try:
-                loop = asyncio.get_running_loop()
-                # If there's a running loop, we need to run in a new thread
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        self._run_in_new_loop, url, timeout, wait_for, wait_for_timeout, take_screenshot
-                    )
-                    return future.result(timeout=timeout // 1000 + 30)
-            except RuntimeError:
-                # No running loop
-                pass
+                # Check if there's already a running loop
+                try:
+                    loop = asyncio.get_running_loop()
+                    # If there's a running loop, we need to run in a new thread
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            self._run_in_reusable_loop, url, timeout, wait_for, wait_for_timeout, take_screenshot
+                        )
+                        result = future.result(timeout=timeout // 1000 + 30)
+                        if result.success or attempt >= retry_count:
+                            return result
+                        last_error = result.error
+                        # Exponential backoff before retry
+                        time.sleep((2 ** attempt) * 0.5)
+                        continue
+                except RuntimeError:
+                    # No running loop
+                    pass
 
-            # Try to get existing loop
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_closed():
-                    raise RuntimeError("Loop is closed")
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                # Reuse thread-local event loop
+                loop = self._get_or_create_loop()
 
-            try:
-                return loop.run_until_complete(
+                result = loop.run_until_complete(
                     self.fetch_async(
                         url,
                         timeout=timeout,
@@ -270,19 +293,28 @@ class PuppeteerFetcher:
                         take_screenshot=take_screenshot,
                     )
                 )
-            finally:
-                # Close the loop if we created it
-                if loop != asyncio.get_event_loop():
-                    loop.close()
 
-        except Exception as e:
-            return PuppeteerResult(
-                success=False,
-                method="puppeteer",
-                error=str(e),
-            )
+                if result.success or attempt >= retry_count:
+                    return result
 
-    def _run_in_new_loop(
+                last_error = result.error
+                # Exponential backoff before retry
+                time.sleep((2 ** attempt) * 0.5)
+
+            except Exception as e:
+                last_error = str(e)
+                if attempt >= retry_count:
+                    break
+                # Exponential backoff before retry
+                time.sleep((2 ** attempt) * 0.5)
+
+        return PuppeteerResult(
+            success=False,
+            method="puppeteer",
+            error=last_error,
+        )
+
+    def _run_in_reusable_loop(
         self,
         url: str,
         timeout: int,
@@ -290,15 +322,11 @@ class PuppeteerFetcher:
         wait_for_timeout: int,
         take_screenshot: bool,
     ) -> PuppeteerResult:
-        """Run fetch in a completely new event loop in a separate thread."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(
-                self.fetch_async(url, timeout, wait_for, wait_for_timeout, take_screenshot)
-            )
-        finally:
-            loop.close()
+        """Run fetch using thread-local reusable event loop."""
+        loop = self._get_or_create_loop()
+        return loop.run_until_complete(
+            self.fetch_async(url, timeout, wait_for, wait_for_timeout, take_screenshot)
+        )
 
     async def close(self):
         """Close the browser."""

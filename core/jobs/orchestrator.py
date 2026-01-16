@@ -2,7 +2,7 @@
 
 import threading
 import time
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Callable
 from datetime import datetime
 
 from database.repositories.job_repository import JobRepository
@@ -46,15 +46,22 @@ class JobOrchestrator:
         self.workers: Dict[str, JobWorker] = {}
         self.worker_threads: Dict[str, threading.Thread] = {}
 
+        # Locks for thread-safe access to shared dictionaries
+        self._workers_lock = threading.Lock()
+        self._logs_lock = threading.Lock()
+
         # Job logs storage (persists even after job completes)
         self.job_logs: Dict[str, List[Dict[str, Any]]] = {}
 
+        # Scheduled log cleanup (job_id -> cleanup time)
+        self._log_cleanup_schedule: Dict[str, float] = {}
+
         # Event callbacks
-        self.on_progress = None
-        self.on_job_complete = None
-        self.on_url_complete = None
-        self.on_error = None
-        self.on_log = None  # New: callback for log entries
+        self.on_progress: Optional[Callable] = None
+        self.on_job_complete: Optional[Callable] = None
+        self.on_url_complete: Optional[Callable] = None
+        self.on_error: Optional[Callable] = None
+        self.on_log: Optional[Callable] = None
 
         self._initialized = True
 
@@ -71,50 +78,55 @@ class JobOrchestrator:
         if job.status not in (Job.STATUS_PENDING, Job.STATUS_PAUSED):
             return False
 
-        # Check if already running
-        if job_id in self.workers:
-            return False
+        with self._workers_lock:
+            # Check if already running
+            if job_id in self.workers:
+                return False
 
-        # Initialize log storage for this job
-        if job_id not in self.job_logs:
-            self.job_logs[job_id] = []
+            # Initialize log storage for this job
+            with self._logs_lock:
+                if job_id not in self.job_logs:
+                    self.job_logs[job_id] = []
+                # Cancel any scheduled cleanup
+                self._log_cleanup_schedule.pop(job_id, None)
 
-        # Update job status
-        self.job_repo.update_status(job_id, Job.STATUS_RUNNING)
+            # Update job status
+            self.job_repo.update_status(job_id, Job.STATUS_RUNNING)
 
-        # Get global settings
-        settings = {
-            "timeout": self.settings_repo.get_int("scraping.timeout", 30000),
-            "retry_count": self.settings_repo.get_int("scraping.retry_count", 3),
-            "delay_min": self.settings_repo.get_int("scraping.delay_min", 1000),
-            "delay_max": self.settings_repo.get_int("scraping.delay_max", 3000),
-            "use_stealth": self.settings_repo.get_bool("scraping.use_stealth", True),
-        }
+            # Get global settings
+            settings = {
+                "timeout": self.settings_repo.get_int("scraping.timeout", 30000),
+                "retry_count": self.settings_repo.get_int("scraping.retry_count", 3),
+                "delay_min": self.settings_repo.get_int("scraping.delay_min", 1000),
+                "delay_max": self.settings_repo.get_int("scraping.delay_max", 3000),
+                "use_stealth": self.settings_repo.get_bool("scraping.use_stealth", True),
+            }
 
-        # Merge job-specific settings (including cascade config)
-        if job.settings:
-            settings.update(job.settings)
+            # Merge job-specific settings (including cascade config)
+            if job.settings:
+                settings.update(job.settings)
 
-        # Create worker with log callback
-        worker = JobWorker(
-            job_id=job_id,
-            settings=settings,
-            on_url_complete=self._handle_url_complete,
-            on_error=self._handle_error,
-            on_log=self._handle_log,
-        )
-        self.workers[job_id] = worker
+            # Create worker with log callback
+            worker = JobWorker(
+                job_id=job_id,
+                settings=settings,
+                on_url_complete=self._handle_url_complete,
+                on_error=self._handle_error,
+                on_log=self._handle_log,
+            )
+            self.workers[job_id] = worker
 
-        # Start worker thread
-        thread = threading.Thread(target=self._run_worker, args=(job_id,), daemon=True)
-        self.worker_threads[job_id] = thread
-        thread.start()
+            # Start worker thread
+            thread = threading.Thread(target=self._run_worker, args=(job_id,), daemon=True)
+            self.worker_threads[job_id] = thread
+            thread.start()
 
         return True
 
     def _run_worker(self, job_id: str):
         """Run worker in background thread."""
-        worker = self.workers.get(job_id)
+        with self._workers_lock:
+            worker = self.workers.get(job_id)
         if not worker:
             return
 
@@ -122,15 +134,16 @@ class JobOrchestrator:
             worker.run()
         except Exception as e:
             self._handle_error(job_id, None, str(e))
+            # Mark job as failed on unhandled exception
+            self.job_repo.update_status(job_id, Job.STATUS_FAILED)
         finally:
             self._cleanup_worker(job_id)
 
     def _cleanup_worker(self, job_id: str):
         """Clean up worker after completion."""
-        if job_id in self.workers:
-            del self.workers[job_id]
-        if job_id in self.worker_threads:
-            del self.worker_threads[job_id]
+        with self._workers_lock:
+            self.workers.pop(job_id, None)
+            self.worker_threads.pop(job_id, None)
 
         # Update job status if still running
         job = self.job_repo.get_job(job_id)
@@ -143,15 +156,19 @@ class JobOrchestrator:
             if self.on_job_complete:
                 self.on_job_complete(job_id)
 
+        # Schedule log cleanup after 5 minutes
+        self._schedule_log_cleanup(job_id)
+
     def pause_job(self, job_id: str) -> bool:
         """Pause a running job."""
         job = self.job_repo.get_job(job_id)
         if not job or job.status != Job.STATUS_RUNNING:
             return False
 
-        worker = self.workers.get(job_id)
-        if worker:
-            worker.stop()
+        with self._workers_lock:
+            worker = self.workers.get(job_id)
+            if worker:
+                worker.stop()
 
         self.job_repo.update_status(job_id, Job.STATUS_PAUSED)
         return True
@@ -170,9 +187,10 @@ class JobOrchestrator:
         if not job:
             return False
 
-        worker = self.workers.get(job_id)
-        if worker:
-            worker.stop()
+        with self._workers_lock:
+            worker = self.workers.get(job_id)
+            if worker:
+                worker.stop()
 
         self.job_repo.update_status(job_id, Job.STATUS_CANCELLED)
         self._cleanup_worker(job_id)
@@ -186,6 +204,9 @@ class JobOrchestrator:
 
         url_counts = self.url_repo.count_by_status(job_id)
 
+        with self._workers_lock:
+            is_running = job_id in self.workers
+
         return {
             "id": job.id,
             "name": job.name,
@@ -195,7 +216,7 @@ class JobOrchestrator:
             "success_count": job.success_count,
             "failure_count": job.failure_count,
             "url_counts": url_counts,
-            "is_running": job_id in self.workers,
+            "is_running": is_running,
         }
 
     def _handle_url_complete(self, job_id: str, url_id: str, success: bool, data: dict):
@@ -217,14 +238,15 @@ class JobOrchestrator:
 
     def _handle_log(self, job_id: str, log_entry: Dict[str, Any]):
         """Handle log callback from worker."""
-        # Store the log entry
-        if job_id not in self.job_logs:
-            self.job_logs[job_id] = []
-        self.job_logs[job_id].append(log_entry)
+        with self._logs_lock:
+            # Store the log entry
+            if job_id not in self.job_logs:
+                self.job_logs[job_id] = []
+            self.job_logs[job_id].append(log_entry)
 
-        # Limit stored logs to prevent memory issues (keep last 1000)
-        if len(self.job_logs[job_id]) > 1000:
-            self.job_logs[job_id] = self.job_logs[job_id][-1000:]
+            # Limit stored logs to prevent memory issues (keep last 1000)
+            if len(self.job_logs[job_id]) > 1000:
+                self.job_logs[job_id] = self.job_logs[job_id][-1000:]
 
         # Notify any listeners
         if self.on_log:
@@ -247,10 +269,13 @@ class JobOrchestrator:
         Returns:
             Dict with logs and current index
         """
-        logs = self.job_logs.get(job_id, [])
+        with self._logs_lock:
+            logs = self.job_logs.get(job_id, [])
+            # Create a copy to avoid holding lock during iteration
+            logs_copy = list(logs)
 
         # Get logs since index
-        new_logs = logs[since_index:]
+        new_logs = logs_copy[since_index:]
 
         # Filter by level if specified
         if level:
@@ -258,15 +283,49 @@ class JobOrchestrator:
 
         return {
             "logs": new_logs,
-            "total_count": len(logs),
-            "current_index": len(logs),
+            "total_count": len(logs_copy),
+            "current_index": len(logs_copy),
         }
 
     def clear_job_logs(self, job_id: str):
         """Clear logs for a job."""
-        if job_id in self.job_logs:
-            self.job_logs[job_id] = []
+        with self._logs_lock:
+            if job_id in self.job_logs:
+                self.job_logs[job_id] = []
+
+    def _schedule_log_cleanup(self, job_id: str, delay_seconds: int = 300):
+        """Schedule log cleanup for a completed job after delay."""
+        cleanup_time = time.time() + delay_seconds
+        with self._logs_lock:
+            self._log_cleanup_schedule[job_id] = cleanup_time
+
+        # Start cleanup thread if not already running
+        threading.Thread(
+            target=self._run_log_cleanup,
+            args=(job_id, delay_seconds),
+            daemon=True
+        ).start()
+
+    def _run_log_cleanup(self, job_id: str, delay_seconds: int):
+        """Run the scheduled log cleanup after delay."""
+        time.sleep(delay_seconds)
+
+        with self._logs_lock:
+            # Check if cleanup is still scheduled (not cancelled by job restart)
+            if job_id in self._log_cleanup_schedule:
+                if time.time() >= self._log_cleanup_schedule[job_id]:
+                    self.job_logs.pop(job_id, None)
+                    self._log_cleanup_schedule.pop(job_id, None)
 
     def get_running_jobs(self) -> list:
         """Get list of currently running job IDs."""
-        return list(self.workers.keys())
+        with self._workers_lock:
+            return list(self.workers.keys())
+
+    def stop_all_jobs(self):
+        """Stop all running jobs. Used for graceful shutdown."""
+        with self._workers_lock:
+            job_ids = list(self.workers.keys())
+
+        for job_id in job_ids:
+            self.stop_job(job_id)

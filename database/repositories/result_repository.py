@@ -5,7 +5,7 @@ from typing import Optional, List
 from uuid import uuid4
 from datetime import datetime
 
-from database.connection import get_session
+from database.connection import session_scope
 from models.result import Result
 
 
@@ -21,8 +21,7 @@ class ResultRepository:
         raw_html: Optional[str] = None,
     ) -> Result:
         """Create a new result."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             result = Result(
                 id=str(uuid4()),
                 job_id=job_id,
@@ -33,22 +32,26 @@ class ResultRepository:
                 scraped_at=datetime.utcnow(),
             )
             session.add(result)
-            session.commit()
+            session.flush()
             session.refresh(result)
+            session.expunge(result)
             return result
-        except Exception:
-            session.rollback()
-            raise
 
     def get_result(self, result_id: str) -> Optional[Result]:
         """Get a result by ID."""
-        session = get_session()
-        return session.query(Result).filter(Result.id == result_id).first()
+        with session_scope() as session:
+            result = session.query(Result).filter(Result.id == result_id).first()
+            if result:
+                session.expunge(result)
+            return result
 
     def get_result_by_url(self, url_id: str) -> Optional[Result]:
         """Get result for a URL."""
-        session = get_session()
-        return session.query(Result).filter(Result.url_id == url_id).first()
+        with session_scope() as session:
+            result = session.query(Result).filter(Result.url_id == url_id).first()
+            if result:
+                session.expunge(result)
+            return result
 
     def list_results(
         self,
@@ -57,42 +60,35 @@ class ResultRepository:
         offset: int = 0,
     ) -> List[Result]:
         """List results for a job."""
-        session = get_session()
-        return (
-            session.query(Result)
-            .filter(Result.job_id == job_id)
-            .order_by(Result.scraped_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        with session_scope() as session:
+            results = (
+                session.query(Result)
+                .filter(Result.job_id == job_id)
+                .order_by(Result.scraped_at.desc())
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+            for result in results:
+                session.expunge(result)
+            return results
 
     def delete_result(self, result_id: str) -> bool:
         """Delete a result."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             result = session.query(Result).filter(Result.id == result_id).first()
             if result:
                 session.delete(result)
-                session.commit()
                 return True
             return False
-        except Exception:
-            session.rollback()
-            raise
 
     def delete_results_for_job(self, job_id: str) -> int:
         """Delete all results for a job."""
-        session = get_session()
-        try:
+        with session_scope() as session:
             count = session.query(Result).filter(Result.job_id == job_id).delete()
-            session.commit()
             return count
-        except Exception:
-            session.rollback()
-            raise
 
     def count_results(self, job_id: str) -> int:
         """Count results for a job."""
-        session = get_session()
-        return session.query(Result).filter(Result.job_id == job_id).count()
+        with session_scope() as session:
+            return session.query(Result).filter(Result.job_id == job_id).count()

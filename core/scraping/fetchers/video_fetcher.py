@@ -30,6 +30,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -577,13 +578,17 @@ class VideoFetcher:
         }
 
 
-# Singleton instance
+# Singleton instance with thread-safe initialization
 _video_fetcher: Optional[VideoFetcher] = None
+_video_fetcher_lock = threading.Lock()
 
 
 def get_video_fetcher() -> VideoFetcher:
-    """Get the singleton video fetcher instance."""
+    """Get the singleton video fetcher instance (thread-safe)."""
     global _video_fetcher
     if _video_fetcher is None:
-        _video_fetcher = VideoFetcher()
+        with _video_fetcher_lock:
+            # Double-check after acquiring lock
+            if _video_fetcher is None:
+                _video_fetcher = VideoFetcher()
     return _video_fetcher
