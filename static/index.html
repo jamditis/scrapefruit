@@ -505,42 +505,46 @@
             <div class="welcome-header">
                 <div class="welcome-logo">🍋</div>
                 <h1>Welcome to <span class="acid-text">SCRAPEFRUIT</span></h1>
-                <p class="welcome-tagline">Web scraping made simple</p>
+                <p class="welcome-tagline">Extract data from any website with smart anti-blocking</p>
             </div>
 
             <div class="welcome-body">
                 <section class="welcome-section">
+                    <h2><span class="section-icon">⚡</span> Key features</h2>
+                    <ul class="welcome-tips">
+                        <li><strong>Multi-method scraping:</strong> HTTP, Playwright, Puppeteer — automatic fallback if one method gets blocked</li>
+                        <li><strong>Stealth mode:</strong> Built-in anti-detection to bypass bot blockers and CAPTCHAs</li>
+                        <li><strong>CSS & XPath selectors:</strong> Extract exactly the data you need with flexible rules</li>
+                        <li><strong>Batch processing:</strong> Scrape hundreds of URLs with configurable delays</li>
+                        <li><strong>Export anywhere:</strong> JSON, CSV, or direct to Google Sheets</li>
+                    </ul>
+                </section>
+
+                <section class="welcome-section">
                     <h2><span class="section-icon">🚀</span> Quick start</h2>
                     <ol class="welcome-steps">
-                        <li><strong>Create a job</strong> — Click "NEW_TASK" and paste your URLs (one per line)</li>
-                        <li><strong>Add extraction rules</strong> — Define what data to pull using CSS selectors</li>
-                        <li><strong>Run the job</strong> — Hit "Start" and watch the results flow in</li>
-                        <li><strong>Export your data</strong> — Download as JSON or CSV from the Results tab</li>
+                        <li><strong>Create a job</strong> — Click "NEW_TASK" and paste URLs</li>
+                        <li><strong>Add rules</strong> — Define CSS selectors for data extraction</li>
+                        <li><strong>Run</strong> — Hit "Start" and watch real-time progress</li>
+                        <li><strong>Export</strong> — Download results as JSON or CSV</li>
                     </ol>
                 </section>
 
                 <section class="welcome-section">
-                    <h2><span class="section-icon">💡</span> Tips & tricks</h2>
+                    <h2><span class="section-icon">💡</span> Pro tips</h2>
                     <ul class="welcome-tips">
-                        <li><strong>Find CSS selectors:</strong> Right-click any element in your browser → Inspect → Right-click the element in DevTools → Copy → Copy selector</li>
-                        <li><strong>Test before scraping:</strong> Use the "Analyze sample" button to preview what your rules will extract</li>
-                        <li><strong>Avoid getting blocked:</strong> Keep delays between requests (1-3 seconds) and enable stealth mode in Settings</li>
-                        <li><strong>Cascade fallback:</strong> Enable multiple scraping methods — if one fails, the system tries the next automatically</li>
-                    </ul>
-                </section>
-
-                <section class="welcome-section">
-                    <h2><span class="section-icon">⚠️</span> Common issues</h2>
-                    <ul class="welcome-tips">
-                        <li><strong>Empty results?</strong> Your selector might be wrong, or the site uses JavaScript to load content. Try enabling Playwright mode.</li>
-                        <li><strong>Getting blocked?</strong> Increase delays, enable stealth mode, and rotate user agents in Settings.</li>
-                        <li><strong>Timeout errors?</strong> The site might be slow. Increase the timeout in Settings (default is 30 seconds).</li>
+                        <li><strong>Find selectors:</strong> In your browser: Right-click element → Inspect → Copy selector</li>
+                        <li><strong>Preview first:</strong> Use "Analyze sample" to test rules before running</li>
+                        <li><strong>Anti-blocking:</strong> Use 1-3s delays and enable stealth mode in Settings</li>
                     </ul>
                 </section>
 
                 <section class="welcome-section welcome-section-compact">
-                    <h2><span class="section-icon">🎨</span> Themes</h2>
-                    <p>Switch between dark, light, and colorful themes in Settings → Appearance.</p>
+                    <h2><span class="section-icon">⚠️</span> Troubleshooting</h2>
+                    <ul class="welcome-tips">
+                        <li><strong>Empty results?</strong> Enable Playwright for JavaScript-heavy sites</li>
+                        <li><strong>Blocked?</strong> Try stealth mode + longer delays in Settings</li>
+                    </ul>
                 </section>
             </div>
 
