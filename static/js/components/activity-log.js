@@ -12,6 +12,7 @@ const ActivityLog = {
     errorCounts: { total: 0, byType: {} }, // Track error categories
     successCount: 0,
     lastLogTimestamp: null,
+    shownToastTimestamps: new Set(), // Track which logs we've already shown toasts for
 
     // Error type descriptions for better UX
     errorDescriptions: {
@@ -82,6 +83,7 @@ const ActivityLog = {
         this.errorCounts = { total: 0, byType: {} };
         this.successCount = 0;
         this.lastLogTimestamp = null;
+        this.shownToastTimestamps = new Set();
     },
 
     /**
@@ -215,6 +217,10 @@ const ActivityLog = {
      * Track log entry for counts and toast notifications
      */
     trackLogEntry(log) {
+        // Check if we've already shown a toast for this log entry
+        const logKey = log.timestamp + ':' + log.message;
+        const alreadyShownToast = this.shownToastTimestamps.has(logKey);
+
         if (log.level === 'success') {
             this.successCount++;
 
@@ -237,14 +243,15 @@ const ActivityLog = {
                 ProgressTracker.urlCompleted(this.currentJobId, false, timeMs);
             }
 
-            // Show toast for errors (but not too frequently)
-            if (typeof Toast !== 'undefined' && this.errorCounts.total <= 5) {
+            // Show toast for errors (but not too frequently, and only if not already shown)
+            if (typeof Toast !== 'undefined' && this.errorCounts.total <= 5 && !alreadyShownToast) {
                 const url = log.data?.url || null;
                 const errorMsg = log.message || 'Unknown error';
                 Toast.error(errorMsg, {
                     url,
                     duration: 4000,
                 });
+                this.shownToastTimestamps.add(logKey);
             }
         } else if (log.level === 'info' && log.message.includes('Starting job')) {
             // Extract total URLs from job start message
@@ -254,18 +261,20 @@ const ActivityLog = {
                 ProgressTracker.initJob(this.currentJobId, total);
             }
 
-            // Show job started toast
-            if (typeof Toast !== 'undefined') {
+            // Show job started toast (only if not already shown)
+            if (typeof Toast !== 'undefined' && !alreadyShownToast) {
                 const total = log.data?.total_urls || 0;
                 Toast.jobEvent('job_started', { total });
+                this.shownToastTimestamps.add(logKey);
             }
         } else if (log.level === 'info' && log.message.includes('Job complete')) {
-            // Show job completed toast
-            if (typeof Toast !== 'undefined') {
+            // Show job completed toast (only if not already shown)
+            if (typeof Toast !== 'undefined' && !alreadyShownToast) {
                 Toast.jobEvent('job_completed', {
                     success: this.successCount,
                     failed: this.errorCounts.total,
                 });
+                this.shownToastTimestamps.add(logKey);
             }
         } else if (log.level === 'info' && log.message.includes('Fetching:')) {
             // Track current URL being processed
