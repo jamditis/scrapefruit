@@ -2908,3 +2908,113 @@ input[type="checkbox"]:focus-visible {
     background: var(--surface);
     border-color: #cbd5e1;
 }
+
+/* Mobile responsive styles for welcome overlay */
+@media (max-width: 768px) {
+    .welcome-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: var(--spacing-sm);
+    }
+
+    .welcome-header {
+        padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
+    }
+
+    .welcome-logo {
+        font-size: 40px;
+    }
+
+    .welcome-header h1 {
+        font-size: 18px;
+        letter-spacing: 1px;
+    }
+
+    .welcome-tagline {
+        font-size: 12px;
+    }
+
+    .welcome-body {
+        padding: var(--spacing-md);
+    }
+
+    .welcome-section {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .welcome-section h2 {
+        font-size: 13px;
+    }
+
+    .welcome-steps li,
+    .welcome-tips li,
+    .welcome-section p {
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .welcome-steps li {
+        padding: var(--spacing-xs) 0 var(--spacing-xs) var(--spacing-lg);
+        margin-left: var(--spacing-xs);
+    }
+
+    .welcome-steps li::before {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+        left: calc(-1 * var(--spacing-sm) - 6px);
+    }
+
+    .welcome-tips li {
+        padding: var(--spacing-xs) 0 var(--spacing-xs) var(--spacing-md);
+    }
+
+    .welcome-footer {
+        padding: var(--spacing-md);
+    }
+
+    .welcome-hint {
+        font-size: 11px;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .welcome-footer .btn {
+        width: 100%;
+        min-width: unset;
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .welcome-close {
+        top: var(--spacing-sm);
+        right: var(--spacing-sm);
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+    }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 380px) {
+    .welcome-header h1 {
+        font-size: 16px;
+    }
+
+    .welcome-logo {
+        font-size: 32px;
+    }
+
+    .welcome-section h2 {
+        font-size: 12px;
+        gap: var(--spacing-xs);
+    }
+
+    .section-icon {
+        font-size: 14px;
+    }
+
+    .welcome-steps li,
+    .welcome-tips li,
+    .welcome-section p {
+        font-size: 11px;
+    }
+}
