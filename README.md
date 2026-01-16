@@ -21,6 +21,8 @@ A Python web application for web scraping with a visual interface. Combines a py
 - **Data extraction**: CSS selectors, XPath expressions, and vision-based OCR fallback
 - **Export options**: SQLite database and Google Sheets integration
 - **AI-driven scraping**: Optional browser-use integration for LLM-controlled browser automation
+- **Video transcription**: Extract and transcribe videos from YouTube, Twitter/X, TikTok, and 1000+ platforms
+- **Local LLM integration**: Free local inference via Ollama for summarization, entity extraction, and classification
 
 ## Tech stack
 
@@ -30,6 +32,8 @@ A Python web application for web scraping with a visual interface. Combines a py
 - **Extraction**: BeautifulSoup, lxml, Tesseract OCR (optional)
 - **Database**: SQLite via SQLAlchemy
 - **Export**: Google Sheets (gspread)
+- **Video**: yt-dlp + faster-whisper for transcription
+- **LLM**: Ollama (local) with OpenAI/Anthropic fallback
 
 ## Quick start
 
@@ -82,6 +86,7 @@ The engine uses a configurable cascade strategy that automatically falls back be
 | **Puppeteer** | Medium | Yes | Alternative browser fingerprint |
 | **Agent-browser** | Slower | Yes | AI-optimized with accessibility tree |
 | **Browser-use** | Slowest | Yes | LLM-controlled automation |
+| **Video** | Varies | N/A | YouTube, Twitter/X, TikTok, 1000+ sites |
 
 **Fallback triggers:**
 - Blocked status codes (403, 429, 503)
@@ -149,6 +154,46 @@ pytest tests/stress/         # Stress tests
 | `browser-use` | AI-driven browser control | `pip install browser-use` |
 | `pytesseract` | Vision/OCR extraction | `pip install pytesseract` + install Tesseract |
 | `agent-browser` | Accessibility tree scraping | `npm install -g agent-browser` |
+| `yt-dlp` | Video/audio extraction | `pip install yt-dlp` |
+| `faster-whisper` | Audio transcription | `pip install faster-whisper` |
+| `ollama` | Local LLM inference | [ollama.ai](https://ollama.ai) + `ollama pull qwen2.5:0.5b` |
+
+## Video transcription
+
+Extract and transcribe videos from 1000+ platforms:
+
+```python
+from core.scraping.fetchers.video_fetcher import VideoFetcher
+
+fetcher = VideoFetcher(whisper_model="tiny", use_2x_speed=True)
+result = fetcher.fetch("https://youtube.com/watch?v=...")
+
+print(result.transcript)       # Plain text
+print(result.to_srt())         # SRT subtitles
+print(result.metadata.title)   # Video metadata
+```
+
+**Supported platforms:** YouTube, Vimeo, Twitter/X, TikTok, Facebook, Instagram, Twitch, Dailymotion, and 1000+ more via yt-dlp.
+
+## Local LLM integration
+
+Free local inference via Ollama (no API costs):
+
+```python
+from core.llm import get_llm_service
+
+llm = get_llm_service()
+result = llm.summarize("Long article text...")
+entities = llm.extract_entities("Text with names and dates...")
+```
+
+**Setup:**
+```bash
+# Install Ollama from ollama.ai, then:
+ollama pull qwen2.5:0.5b  # 400MB, good for low-memory systems
+```
+
+The service auto-detects Ollama and falls back to OpenAI/Anthropic if API keys are set.
 
 ## Contributing
 
