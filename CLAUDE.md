@@ -19,7 +19,7 @@ Scrapefruit is a Python desktop application for web scraping with a visual inter
 - **LLM**: Local-first via Ollama, cloud fallback (OpenAI, Anthropic)
 - **Database**: SQLite via SQLAlchemy
 - **Export**: Google Sheets (gspread)
-- **Testing**: pytest with 170+ tests
+- **Testing**: pytest with 195+ tests
 
 ## Directory structure
 
@@ -73,7 +73,8 @@ scrapefruit/
 │   └── settings.py         # App settings
 ├── static/
 │   └── js/
-│       ├── state.js        # Frontend state management
+│       ├── types.js        # JSDoc type definitions and validators
+│       ├── state.js        # Frontend state management with subscriptions
 │       └── components/
 │           ├── rules-editor.js      # Rule editing UI
 │           └── cascade-settings.js  # Cascade config UI
@@ -321,6 +322,61 @@ ollama pull qwen2.5:1.5b  # 1GB
 | `data/` | SQLite database (`scrapefruit.db`) |
 | `logs/` | Application logs |
 | `exports/` | Exported data files |
+
+## Architecture patterns
+
+### Dependency injection
+
+The app uses a DI container (`core/container.py`) for managing service dependencies:
+
+```python
+from core.container import get_container
+
+container = get_container()
+job_repo = container.resolve("job_repository")
+orchestrator = container.resolve("job_orchestrator")
+```
+
+Services are registered once at startup and resolved throughout the app, enabling easier testing and loose coupling.
+
+### Circuit breaker (LLM service)
+
+The LLM service uses a circuit breaker pattern to handle provider failures gracefully:
+
+- **Closed state**: Normal operation, requests pass through
+- **Open state**: After 3 failures, requests fail fast for 60 seconds
+- **Half-open state**: After timeout, allows one test request
+
+This prevents cascading failures when Ollama or cloud APIs are unavailable.
+
+### Route decorators
+
+API routes use decorators to reduce boilerplate. The `@require_job` decorator in `api/routes/jobs.py`:
+
+```python
+@jobs_bp.route("/<job_id>", methods=["GET"])
+@require_job
+def get_job(job_id: str):
+    # g.job is automatically loaded, 404 returned if not found
+    return jsonify({"job": g.job.to_dict()})
+```
+
+### Frontend type system
+
+The frontend uses JSDoc for type safety without TypeScript compilation:
+
+- `static/js/types.js` - Type definitions, validators, and type guards
+- `static/js/state.js` - Centralized state with fine-grained subscriptions
+
+```javascript
+// Subscribe to specific state changes
+State.on('jobs', (jobs) => renderJobList(jobs));
+State.on('selectedJobId', (id) => highlightJob(id));
+
+// Type validation
+const validation = Types.validateJob(jobData);
+if (!validation.valid) console.warn(validation.errors);
+```
 
 ## Development notes
 
