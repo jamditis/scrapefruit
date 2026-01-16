@@ -6,6 +6,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/jamditis/scrapefruit?style=flat-square)](https://github.com/jamditis/scrapefruit/commits)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Deploy](https://img.shields.io/github/actions/workflow/status/jamditis/scrapefruit/deploy.yml?branch=master&style=flat-square&label=deploy)](https://github.com/jamditis/scrapefruit/actions/workflows/deploy.yml)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-yellow?style=flat-square)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 
 A Python desktop application for web scraping with a visual interface. Combines a pywebview GUI with a Flask backend, using Playwright for browser automation with stealth capabilities to bypass anti-bot detection.
 
