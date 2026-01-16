@@ -499,8 +499,49 @@ html, body {
 
 /* Sidebar Footer */
 .sidebar-footer {
+    margin-top: auto;
     padding: var(--spacing-md);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/* Sidebar Theme Selector */
+.sidebar-theme-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--panel);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-theme-selector svg {
+    width: 16px;
+    height: 16px;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.sidebar-theme-select {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--chrome);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 0;
+}
+
+.sidebar-theme-select:focus {
+    outline: none;
+}
+
+.sidebar-theme-select option {
+    background: var(--void);
+    color: var(--text);
 }
 
 .status-indicator {
@@ -2881,9 +2922,35 @@ input[type="checkbox"]:focus-visible {
 
 /* Help button in sidebar */
 .nav-item-help {
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
     border-top: 1px solid rgba(255, 255, 255, 0.05);
-    padding-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    display: flex !important;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: 0;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.nav-item-help:hover {
+    color: var(--acid);
+    background: var(--acid-dim);
+}
+
+.nav-item-help svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
 }
 
 /* Light theme adjustments for welcome overlay */

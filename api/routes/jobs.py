@@ -19,10 +19,16 @@ orchestrator = JobOrchestrator()
 def list_jobs():
     """List all jobs with optional filtering."""
     status = request.args.get("status")
+    include_archived = request.args.get("include_archived", "false").lower() == "true"
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
 
-    jobs = job_repo.list_jobs(status=status, limit=limit, offset=offset)
+    jobs = job_repo.list_jobs(
+        status=status,
+        include_archived=include_archived,
+        limit=limit,
+        offset=offset
+    )
     return jsonify({"jobs": [j.to_dict() for j in jobs], "total": len(jobs)})
 
 
@@ -80,6 +86,34 @@ def delete_job(job_id: str):
 
     job_repo.delete_job(job_id)
     return jsonify({"message": "Job deleted"})
+
+
+@jobs_bp.route("/<job_id>/archive", methods=["POST"])
+def archive_job(job_id: str):
+    """Archive a job (hide from main list but keep data)."""
+    job = job_repo.get_job(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+
+    if job.status == "running":
+        return jsonify({"error": "Cannot archive a running job. Stop it first."}), 400
+
+    job = job_repo.archive_job(job_id)
+    return jsonify({"job": job.to_dict()})
+
+
+@jobs_bp.route("/<job_id>/unarchive", methods=["POST"])
+def unarchive_job(job_id: str):
+    """Restore an archived job to pending status."""
+    job = job_repo.get_job(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+
+    if job.status != "archived":
+        return jsonify({"error": "Job is not archived"}), 400
+
+    job = job_repo.unarchive_job(job_id)
+    return jsonify({"job": job.to_dict()})
 
 
 # Job control endpoints

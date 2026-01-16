@@ -51,13 +51,24 @@
             </nav>
 
             <div class="sidebar-footer">
-                <button class="nav-item nav-item-help" id="btn-show-help" title="Show help & tips">
+                <div class="sidebar-theme-selector">
+                    <i data-lucide="palette"></i>
+                    <select id="sidebar-theme" class="sidebar-theme-select">
+                        <option value="citrus-dark">Citrus dark</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="forest">Forest</option>
+                        <option value="rose">Rosé</option>
+                        <option value="light">Light</option>
+                        <option value="high-contrast">High contrast</option>
+                    </select>
+                </div>
+                <button class="nav-item nav-item-help" id="btn-show-help" title="Show help & tips (press ?)">
                     <i data-lucide="help-circle"></i>
                     <span>HELP</span>
                 </button>
                 <div class="status-indicator" id="status-indicator">
                     <span class="status-dot"></span>
-                    <span class="status-text">SYSTEM READY</span>
+                    <span class="status-text">READY</span>
                 </div>
             </div>
         </aside>
@@ -72,6 +83,9 @@
                         <span class="view-header-sub">// Job_Management_Console</span>
                     </div>
                     <div class="view-actions">
+                        <button class="btn btn-ghost btn-sm" id="btn-toggle-archived" title="Show/hide archived jobs">
+                            Show archived
+                        </button>
                         <button class="btn btn-ghost" id="btn-refresh-jobs" title="Refresh jobs list">
                             <i data-lucide="refresh-cw"></i>
                         </button>

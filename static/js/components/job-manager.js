@@ -5,6 +5,9 @@ const JobManager = {
     // Elements
     els: {},
 
+    // Show archived jobs in list
+    showArchived: false,
+
     // Initialize
     init() {
         this.cacheElements();
@@ -38,6 +41,12 @@ const JobManager = {
             this.els.btnRefreshJobs.addEventListener('click', () => this.loadJobs());
         }
 
+        // Toggle archived button
+        const btnToggleArchived = document.getElementById('btn-toggle-archived');
+        if (btnToggleArchived) {
+            btnToggleArchived.addEventListener('click', () => this.toggleShowArchived());
+        }
+
         // Modal close buttons
         document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
             btn.addEventListener('click', () => this.closeModals());
@@ -63,10 +72,21 @@ const JobManager = {
 
     async loadJobs() {
         try {
-            const result = await API.listJobs();
+            const result = await API.listJobs(null, this.showArchived);
             State.set('jobs', result.jobs || []);
         } catch (error) {
             console.error('Failed to load jobs:', error);
+        }
+    },
+
+    toggleShowArchived() {
+        this.showArchived = !this.showArchived;
+        this.loadJobs();
+        // Update toggle button state
+        const btn = document.getElementById('btn-toggle-archived');
+        if (btn) {
+            btn.classList.toggle('active', this.showArchived);
+            btn.textContent = this.showArchived ? 'Hide archived' : 'Show archived';
         }
     },
 
@@ -336,6 +356,12 @@ const JobManager = {
     renderJobActions(job) {
         const buttons = [];
 
+        if (job.status === 'archived') {
+            buttons.push(`<button class="btn btn-secondary" data-action="unarchive">Restore</button>`);
+            buttons.push(`<button class="btn btn-danger" data-action="delete">Delete permanently</button>`);
+            return buttons.join('');
+        }
+
         if (job.status === 'pending' || job.status === 'paused') {
             buttons.push(`<button class="btn btn-primary" data-action="start">▶ Start</button>`);
         }
@@ -345,8 +371,13 @@ const JobManager = {
             buttons.push(`<button class="btn btn-danger" data-action="stop">⏹ Stop</button>`);
         }
 
-        if (job.status === 'completed' || job.status === 'failed') {
+        if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
             buttons.push(`<button class="btn btn-secondary" data-action="restart">↻ Restart</button>`);
+        }
+
+        // Archive option for non-running jobs
+        if (job.status !== 'running') {
+            buttons.push(`<button class="btn btn-ghost" data-action="archive">Archive</button>`);
         }
 
         buttons.push(`<button class="btn btn-ghost" data-action="delete">Delete</button>`);
@@ -533,8 +564,26 @@ const JobManager = {
                         ActivityLog.startPolling(jobId);
                     }
                     break;
+                case 'archive':
+                    result = await API.archiveJob(jobId);
+                    if (result && result.job) {
+                        // Remove from list if not showing archived
+                        if (!this.showArchived) {
+                            State.removeJob(jobId);
+                        } else {
+                            State.updateJob(jobId, result.job);
+                        }
+                        // Stop activity log polling
+                        if (typeof ActivityLog !== 'undefined') {
+                            ActivityLog.stopPolling();
+                        }
+                    }
+                    return;
+                case 'unarchive':
+                    result = await API.unarchiveJob(jobId);
+                    break;
                 case 'delete':
-                    if (confirm('Delete this job and all its data?')) {
+                    if (confirm('Delete this job and all its data? This cannot be undone.')) {
                         await API.deleteJob(jobId);
                         State.removeJob(jobId);
                         // Stop activity log polling

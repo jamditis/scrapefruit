@@ -48,6 +48,7 @@ class JobRepository:
     def list_jobs(
         self,
         status: Optional[str] = None,
+        include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> List[Job]:
@@ -57,9 +58,20 @@ class JobRepository:
 
         if status:
             query = query.filter(Job.status == status)
+        elif not include_archived:
+            # By default, exclude archived jobs unless explicitly requested
+            query = query.filter(Job.status != Job.STATUS_ARCHIVED)
 
         query = query.order_by(Job.created_at.desc())
         return query.offset(offset).limit(limit).all()
+
+    def archive_job(self, job_id: str) -> Optional[Job]:
+        """Archive a job (soft delete - keeps data but hides from main list)."""
+        return self.update_status(job_id, Job.STATUS_ARCHIVED)
+
+    def unarchive_job(self, job_id: str) -> Optional[Job]:
+        """Restore an archived job to pending status."""
+        return self.update_status(job_id, Job.STATUS_PENDING)
 
     def update_job(self, job_id: str, **kwargs) -> Optional[Job]:
         """Update job fields."""

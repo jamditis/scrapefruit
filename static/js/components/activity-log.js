@@ -8,6 +8,7 @@ const ActivityLog = {
     pollInterval: null,
     POLL_RATE: 1000, // Poll every second for new logs
     activeFilter: 'all',
+    isFetching: false, // Guard against concurrent fetches
 
     /**
      * Render the activity log panel
@@ -82,6 +83,10 @@ const ActivityLog = {
     async fetchLogs() {
         if (!this.currentJobId) return;
 
+        // Guard against concurrent fetches
+        if (this.isFetching) return;
+        this.isFetching = true;
+
         try {
             const levelFilter = this.activeFilter !== 'all' ? this.activeFilter : null;
             const result = await API.getJobLogs(this.currentJobId, this.logIndex, levelFilter);
@@ -94,7 +99,10 @@ const ActivityLog = {
             this.logIndex = result.current_index;
 
             // Update count display
-            document.getElementById('log-count').textContent = result.total_count;
+            const logCountEl = document.getElementById('log-count');
+            if (logCountEl) {
+                logCountEl.textContent = result.total_count;
+            }
 
             // Stop polling if job is complete
             if (result.job_status === 'completed' || result.job_status === 'failed' || result.job_status === 'cancelled') {
@@ -102,7 +110,9 @@ const ActivityLog = {
             }
 
         } catch (error) {
-            console.error('Failed to fetch logs:', error);
+            // Errors handled by API layer with backoff
+        } finally {
+            this.isFetching = false;
         }
     },
 

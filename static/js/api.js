@@ -4,8 +4,62 @@
 const API = {
     baseUrl: '',
 
-    async request(method, endpoint, data = null) {
-        const options = {
+    // Track consecutive failures for exponential backoff
+    consecutiveFailures: 0,
+    maxBackoffMs: 30000, // Max 30 second backoff
+    baseBackoffMs: 1000, // Start at 1 second
+
+    // Track in-flight requests to prevent duplicates
+    pendingRequests: new Map(),
+
+    /**
+     * Get current backoff delay based on consecutive failures
+     */
+    getBackoffDelay() {
+        if (this.consecutiveFailures === 0) return 0;
+        const delay = Math.min(
+            this.baseBackoffMs * Math.pow(2, this.consecutiveFailures - 1),
+            this.maxBackoffMs
+        );
+        return delay;
+    },
+
+    /**
+     * Wait for backoff period if needed
+     */
+    async waitForBackoff() {
+        const delay = this.getBackoffDelay();
+        if (delay > 0) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    },
+
+    async request(method, endpoint, data = null, options = {}) {
+        const { skipDedup = false } = options;
+        const requestKey = `${method}:${endpoint}`;
+
+        // Deduplicate concurrent identical requests (for polling)
+        if (!skipDedup && this.pendingRequests.has(requestKey)) {
+            return this.pendingRequests.get(requestKey);
+        }
+
+        const requestPromise = this._doRequest(method, endpoint, data);
+
+        if (!skipDedup) {
+            this.pendingRequests.set(requestKey, requestPromise);
+            requestPromise.finally(() => {
+                this.pendingRequests.delete(requestKey);
+            });
+        }
+
+        return requestPromise;
+    },
+
+    async _doRequest(method, endpoint, data = null) {
+        // Wait for backoff if we've had failures
+        await this.waitForBackoff();
+
+        const fetchOptions = {
             method,
             headers: {
                 'Content-Type': 'application/json',
@@ -13,28 +67,47 @@ const API = {
         };
 
         if (data) {
-            options.body = JSON.stringify(data);
+            fetchOptions.body = JSON.stringify(data);
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}${endpoint}`, options);
+            const response = await fetch(`${this.baseUrl}${endpoint}`, fetchOptions);
+
+            // Check for server errors before parsing JSON
+            if (response.status >= 500) {
+                this.consecutiveFailures++;
+                const error = new Error(`Server error: ${response.status} ${response.statusText}`);
+                error.status = response.status;
+                error.isServerError = true;
+                throw error;
+            }
+
             const result = await response.json();
 
             if (!response.ok) {
+                this.consecutiveFailures++;
                 throw new Error(result.error || 'Request failed');
             }
 
+            // Success - reset failure counter
+            this.consecutiveFailures = 0;
             return result;
         } catch (error) {
-            console.error('API Error:', error);
+            // Only log non-repeated errors to reduce console spam
+            if (this.consecutiveFailures <= 1 || this.consecutiveFailures % 5 === 0) {
+                console.error(`API Error (failure #${this.consecutiveFailures}):`, error.message);
+            }
             throw error;
         }
     },
 
     // Jobs
-    async listJobs(status = null) {
-        const params = status ? `?status=${status}` : '';
-        return this.request('GET', `/api/jobs${params}`);
+    async listJobs(status = null, includeArchived = false) {
+        const params = new URLSearchParams();
+        if (status) params.set('status', status);
+        if (includeArchived) params.set('include_archived', 'true');
+        const queryString = params.toString();
+        return this.request('GET', `/api/jobs${queryString ? '?' + queryString : ''}`);
     },
 
     async getJob(jobId) {
@@ -67,6 +140,14 @@ const API = {
 
     async stopJob(jobId) {
         return this.request('POST', `/api/jobs/${jobId}/stop`);
+    },
+
+    async archiveJob(jobId) {
+        return this.request('POST', `/api/jobs/${jobId}/archive`);
+    },
+
+    async unarchiveJob(jobId) {
+        return this.request('POST', `/api/jobs/${jobId}/unarchive`);
     },
 
     async getJobProgress(jobId) {

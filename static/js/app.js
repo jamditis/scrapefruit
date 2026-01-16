@@ -5,6 +5,7 @@ const App = {
     // Polling interval for job progress
     pollInterval: null,
     POLL_RATE: 2000, // 2 seconds
+    isPolling: false, // Guard against concurrent polling
 
     init() {
         this.loadTheme();
@@ -16,32 +17,38 @@ const App = {
 
     // Theme management
     loadTheme() {
-        const savedTheme = localStorage.getItem('scrapefruit-theme') || 'citrus-dark';
+        const savedTheme = localStorage.getItem('scrapefruit-theme') || 'rose';
         this.applyTheme(savedTheme);
     },
 
     applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
-        const themeSelect = document.getElementById('setting-theme');
-        if (themeSelect) {
-            themeSelect.value = theme;
-        }
+        // Sync both theme selectors
+        ['setting-theme', 'sidebar-theme'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = theme;
+        });
     },
 
     initThemeSelector() {
-        const themeSelect = document.getElementById('setting-theme');
-        if (themeSelect) {
-            // Set current theme
-            const savedTheme = localStorage.getItem('scrapefruit-theme') || 'citrus-dark';
-            themeSelect.value = savedTheme;
+        // Initialize both sidebar and settings theme selectors
+        const themeSelects = document.querySelectorAll('#setting-theme, #sidebar-theme');
+        const savedTheme = localStorage.getItem('scrapefruit-theme') || 'rose';
 
-            // Listen for changes
-            themeSelect.addEventListener('change', (e) => {
-                const theme = e.target.value;
-                this.applyTheme(theme);
-                localStorage.setItem('scrapefruit-theme', theme);
-            });
-        }
+        themeSelects.forEach(themeSelect => {
+            if (themeSelect) {
+                themeSelect.value = savedTheme;
+
+                // Listen for changes
+                themeSelect.addEventListener('change', (e) => {
+                    const theme = e.target.value;
+                    this.applyTheme(theme);
+                    localStorage.setItem('scrapefruit-theme', theme);
+                    // Sync both selectors
+                    themeSelects.forEach(s => { if (s) s.value = theme; });
+                });
+            }
+        });
     },
 
     setupNavigation() {
@@ -159,47 +166,55 @@ const App = {
     },
 
     async pollJobs() {
-        const jobs = State.get('jobs');
-        const runningJobs = jobs.filter(j => j.status === 'running');
+        // Guard against concurrent polling
+        if (this.isPolling) return;
+        this.isPolling = true;
 
-        if (runningJobs.length === 0) {
-            this.updateStatusIndicator(false);
-            return;
-        }
+        try {
+            const jobs = State.get('jobs');
+            const runningJobs = jobs.filter(j => j.status === 'running');
 
-        this.updateStatusIndicator(true);
-
-        // Update each running job
-        for (const job of runningJobs) {
-            try {
-                const progress = await API.getJobProgress(job.id);
-                const wasRunning = job.status === 'running';
-                const isNowDone = progress.status !== 'running';
-
-                State.updateJob(job.id, {
-                    status: progress.status,
-                    progress_current: progress.current,
-                    progress_total: progress.total,
-                    success_count: progress.success,
-                    failure_count: progress.failure,
-                });
-
-                // Update stats in place (doesn't reset scroll)
-                const selectedId = State.get('selectedJobId');
-                if (selectedId === job.id) {
-                    const updatedJob = State.get('jobs').find(j => j.id === job.id);
-                    if (updatedJob) {
-                        JobManager.updateProgressStats(updatedJob);
-                    }
-
-                    // Only do full re-render if job just completed
-                    if (wasRunning && isNowDone) {
-                        JobManager.renderJobDetail();
-                    }
-                }
-            } catch (error) {
-                console.error(`Failed to poll job ${job.id}:`, error);
+            if (runningJobs.length === 0) {
+                this.updateStatusIndicator(false);
+                return;
             }
+
+            this.updateStatusIndicator(true);
+
+            // Update each running job
+            for (const job of runningJobs) {
+                try {
+                    const progress = await API.getJobProgress(job.id);
+                    const wasRunning = job.status === 'running';
+                    const isNowDone = progress.status !== 'running';
+
+                    State.updateJob(job.id, {
+                        status: progress.status,
+                        progress_current: progress.current,
+                        progress_total: progress.total,
+                        success_count: progress.success,
+                        failure_count: progress.failure,
+                    });
+
+                    // Update stats in place (doesn't reset scroll)
+                    const selectedId = State.get('selectedJobId');
+                    if (selectedId === job.id) {
+                        const updatedJob = State.get('jobs').find(j => j.id === job.id);
+                        if (updatedJob) {
+                            JobManager.updateProgressStats(updatedJob);
+                        }
+
+                        // Only do full re-render if job just completed
+                        if (wasRunning && isNowDone) {
+                            JobManager.renderJobDetail();
+                        }
+                    }
+                } catch (error) {
+                    // Errors handled by API layer with backoff, just skip this poll
+                }
+            }
+        } finally {
+            this.isPolling = false;
         }
     },
 

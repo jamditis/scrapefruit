@@ -35,6 +35,7 @@ class Job(Base):
     STATUS_COMPLETED = "completed"
     STATUS_FAILED = "failed"
     STATUS_CANCELLED = "cancelled"
+    STATUS_ARCHIVED = "archived"
 
     # Valid modes
     MODE_SINGLE = "single"
