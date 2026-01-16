@@ -3,9 +3,13 @@
 from typing import Optional, List
 from lxml import html
 
+from core.scraping.extractors.base import BaseExtractor
 
-class XPathExtractor:
+
+class XPathExtractor(BaseExtractor):
     """Extract data from HTML using XPath expressions."""
+
+    METHOD_NAME = "xpath"
 
     def extract_one(
         self,

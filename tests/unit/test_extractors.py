@@ -368,11 +368,285 @@ class TestVisionExtractor:
             assert 0 <= result.confidence <= 1
 
     def test_regions_have_positions(self, extractor, temp_screenshot_bytes):
-        """Region results should have position data."""
+        """Region results should have position data (as TextRegion dataclass)."""
         result = extractor.extract_regions(temp_screenshot_bytes)
         if result.success and result.regions:
             region = result.regions[0]
-            assert 'x' in region
-            assert 'y' in region
-            assert 'width' in region
-            assert 'height' in region
+            # TextRegion is now a dataclass with attributes instead of dict keys
+            assert hasattr(region, 'x')
+            assert hasattr(region, 'y')
+            assert hasattr(region, 'width')
+            assert hasattr(region, 'height')
+            assert hasattr(region, 'text')
+            assert hasattr(region, 'confidence')
+
+
+# ============================================================================
+# Pure Data Transformation Tests
+# ============================================================================
+
+class TestBooksToScrapePureExtraction:
+    """
+    Pure data transformation tests using Books to Scrape fixtures.
+
+    These tests verify extraction logic WITHOUT any HTTP calls, following
+    TDD best practices of separating data transformation from I/O.
+    """
+
+    @pytest.fixture
+    def css_extractor(self):
+        return CSSExtractor()
+
+    @pytest.fixture
+    def xpath_extractor(self):
+        return XPathExtractor()
+
+    # ========================================================================
+    # Book Detail Page Extraction
+    # ========================================================================
+
+    def test_extract_book_title(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract book title from detail page."""
+        result = css_extractor.extract_one(
+            books_to_scrape_book,
+            books_to_scrape_selectors["title"]
+        )
+        assert result == "A Light in the Attic"
+
+    def test_extract_book_price(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract book price from detail page."""
+        result = css_extractor.extract_one(
+            books_to_scrape_book,
+            books_to_scrape_selectors["price"]
+        )
+        assert result == "£51.77"
+
+    def test_extract_book_availability(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract availability status from detail page."""
+        result = css_extractor.extract_one(
+            books_to_scrape_book,
+            books_to_scrape_selectors["availability"]
+        )
+        assert "In stock" in result
+        assert "22 available" in result
+
+    def test_extract_book_upc(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract UPC from product table."""
+        result = css_extractor.extract_one(
+            books_to_scrape_book,
+            books_to_scrape_selectors["upc"]
+        )
+        assert result == "a897fe39b1053632"
+
+    def test_extract_book_rating_class(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract rating from class attribute."""
+        result = css_extractor.extract_one(
+            books_to_scrape_book,
+            books_to_scrape_selectors["rating"],
+            attribute="class"
+        )
+        assert "Three" in result  # 3-star rating
+
+    def test_extract_breadcrumb_navigation(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract breadcrumb trail."""
+        results = css_extractor.extract_all(
+            books_to_scrape_book,
+            books_to_scrape_selectors["breadcrumb"]
+        )
+        assert len(results) == 4  # Home > Books > Poetry > Title
+        assert "Home" in results[0]
+        assert "Poetry" in results[2]
+
+    def test_extract_description(self, css_extractor, books_to_scrape_book, books_to_scrape_selectors):
+        """Extract product description."""
+        result = css_extractor.extract_one(
+            books_to_scrape_book,
+            books_to_scrape_selectors["description"]
+        )
+        assert "Shel Silverstein" in result
+        assert "poetry" in result.lower()
+
+    # ========================================================================
+    # Catalog Page Extraction
+    # ========================================================================
+
+    def test_extract_all_books_from_catalog(self, css_extractor, books_to_scrape_catalog, books_to_scrape_selectors):
+        """Extract all book articles from catalog page."""
+        results = css_extractor.extract_all(
+            books_to_scrape_catalog,
+            books_to_scrape_selectors["books"]
+        )
+        # Fixture has 3 books
+        assert len(results) == 3
+
+    def test_extract_book_titles_from_catalog(self, css_extractor, books_to_scrape_catalog, books_to_scrape_selectors):
+        """Extract all book titles from catalog page."""
+        results = css_extractor.extract_all(
+            books_to_scrape_catalog,
+            books_to_scrape_selectors["book_title"],
+            attribute="title"
+        )
+        assert "A Light in the Attic" in results
+        assert "Tipping the Velvet" in results
+        assert "Soumission" in results
+
+    def test_extract_book_prices_from_catalog(self, css_extractor, books_to_scrape_catalog, books_to_scrape_selectors):
+        """Extract all book prices from catalog page."""
+        results = css_extractor.extract_all(
+            books_to_scrape_catalog,
+            books_to_scrape_selectors["book_price"]
+        )
+        assert len(results) == 3
+        assert "£51.77" in results
+        assert "£53.74" in results
+        assert "£50.10" in results
+
+    def test_extract_book_links_from_catalog(self, css_extractor, books_to_scrape_catalog, books_to_scrape_selectors):
+        """Extract all book links from catalog page."""
+        results = css_extractor.extract_all(
+            books_to_scrape_catalog,
+            books_to_scrape_selectors["book_link"],
+            attribute="href"
+        )
+        assert len(results) == 3
+        assert "a-light-in-the-attic_1000/index.html" in results
+
+    def test_extract_pagination_info(self, css_extractor, books_to_scrape_catalog, books_to_scrape_selectors):
+        """Extract pagination text."""
+        result = css_extractor.extract_one(
+            books_to_scrape_catalog,
+            books_to_scrape_selectors["pagination"]
+        )
+        assert "Page 1 of 50" in result
+
+    def test_extract_next_page_link(self, css_extractor, books_to_scrape_catalog, books_to_scrape_selectors):
+        """Extract next page URL."""
+        result = css_extractor.extract_one(
+            books_to_scrape_catalog,
+            books_to_scrape_selectors["next_page"],
+            attribute="href"
+        )
+        assert result == "page-2.html"
+
+    # ========================================================================
+    # XPath Equivalents (Same Tests, Different Syntax)
+    # ========================================================================
+
+    def test_xpath_extract_book_title(self, xpath_extractor, books_to_scrape_book):
+        """Extract book title using XPath."""
+        result = xpath_extractor.extract_one(
+            books_to_scrape_book,
+            "//article[contains(@class, 'product_page')]//h1"
+        )
+        assert result == "A Light in the Attic"
+
+    def test_xpath_extract_book_price(self, xpath_extractor, books_to_scrape_book):
+        """Extract book price using XPath."""
+        result = xpath_extractor.extract_one(
+            books_to_scrape_book,
+            "//p[@class='price_color']"
+        )
+        assert result == "£51.77"
+
+    def test_xpath_extract_table_data(self, xpath_extractor, books_to_scrape_book):
+        """Extract data from product info table using XPath."""
+        result = xpath_extractor.extract_one(
+            books_to_scrape_book,
+            "//table//tr[th[text()='UPC']]/td"
+        )
+        assert result == "a897fe39b1053632"
+
+    def test_xpath_extract_all_prices_from_catalog(self, xpath_extractor, books_to_scrape_catalog):
+        """Extract all prices from catalog using XPath."""
+        results = xpath_extractor.extract_all(
+            books_to_scrape_catalog,
+            "//article[contains(@class, 'product_pod')]//p[@class='price_color']"
+        )
+        assert len(results) == 3
+
+
+# ============================================================================
+# Data Cleaning / Transformation Tests
+# ============================================================================
+
+class TestDataCleaning:
+    """
+    Tests for pure data cleaning functions (no I/O).
+
+    These test the transformation step that happens AFTER extraction,
+    turning raw scraped strings into structured, validated data.
+    """
+
+    def test_price_extraction_and_parsing(self):
+        """Test extracting numeric price from currency string."""
+        raw_prices = ["£51.77", "$99.99", "€123.45", "¥1000"]
+
+        def parse_price(price_str: str) -> float:
+            """Pure function to parse price from string."""
+            import re
+            # Remove currency symbols and parse as float
+            numeric = re.sub(r'[^\d.]', '', price_str)
+            return float(numeric) if numeric else 0.0
+
+        assert parse_price("£51.77") == 51.77
+        assert parse_price("$99.99") == 99.99
+        assert parse_price("€123.45") == 123.45
+
+    def test_availability_parsing(self):
+        """Test parsing availability count from text."""
+        def parse_availability(text: str) -> tuple:
+            """Pure function to parse availability."""
+            import re
+            text_lower = text.lower().strip()
+
+            if "out of stock" in text_lower:
+                return (False, 0)
+
+            match = re.search(r'(\d+)\s*available', text_lower)
+            count = int(match.group(1)) if match else 0
+            in_stock = "in stock" in text_lower
+
+            return (in_stock, count)
+
+        assert parse_availability("In stock (22 available)") == (True, 22)
+        assert parse_availability("In stock (1 available)") == (True, 1)
+        assert parse_availability("Out of stock") == (False, 0)
+
+    def test_star_rating_from_class(self):
+        """Test parsing star rating from CSS class."""
+        def parse_rating(class_str: str) -> int:
+            """Pure function to parse rating from class."""
+            rating_map = {
+                "One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5
+            }
+            for word, value in rating_map.items():
+                if word in class_str:
+                    return value
+            return 0
+
+        assert parse_rating("star-rating Three") == 3
+        assert parse_rating("star-rating Five") == 5
+        assert parse_rating("star-rating One") == 1
+
+    def test_url_normalization(self):
+        """Test normalizing relative URLs to absolute."""
+        def normalize_url(relative: str, base: str) -> str:
+            """Pure function to normalize URL."""
+            from urllib.parse import urljoin
+            return urljoin(base, relative)
+
+        base = "https://books.toscrape.com/catalogue/"
+        assert normalize_url("page-2.html", base) == "https://books.toscrape.com/catalogue/page-2.html"
+        assert normalize_url("../index.html", base) == "https://books.toscrape.com/index.html"
+
+    def test_text_cleaning(self):
+        """Test cleaning extracted text."""
+        def clean_text(text: str) -> str:
+            """Pure function to clean text."""
+            import re
+            # Normalize whitespace
+            text = re.sub(r'\s+', ' ', text)
+            return text.strip()
+
+        assert clean_text("  Multiple   spaces   here  ") == "Multiple spaces here"
+        assert clean_text("\n\nNew\nlines\n\n") == "New lines"

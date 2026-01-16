@@ -2,7 +2,7 @@
 
 import io
 import re
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 
 try:
@@ -26,7 +26,7 @@ class VisionExtractionResult:
     structured_data: Dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.0
     error: Optional[str] = None
-    regions: List[Dict[str, Any]] = field(default_factory=list)
+    regions: List["TextRegion"] = field(default_factory=list)
 
 
 @dataclass
@@ -38,6 +38,9 @@ class TextRegion:
     width: int
     height: int
     confidence: float
+    level: int = 5  # 1=page, 2=block, 3=para, 4=line, 5=word
+    block_num: int = 0
+    line_num: int = 0
 
 
 class VisionExtractor:
@@ -159,7 +162,7 @@ class VisionExtractor:
             # Get detailed OCR data
             data = pytesseract.image_to_data(image, lang=lang, output_type=pytesseract.Output.DICT)
 
-            regions = []
+            regions: List[TextRegion] = []
             n_boxes = len(data['text'])
 
             for i in range(n_boxes):
@@ -170,21 +173,21 @@ class VisionExtractor:
                 if not text or conf == -1 or conf / 100 < min_confidence:
                     continue
 
-                regions.append({
-                    'text': text,
-                    'x': data['left'][i],
-                    'y': data['top'][i],
-                    'width': data['width'][i],
-                    'height': data['height'][i],
-                    'confidence': conf / 100,
-                    'level': data['level'][i],  # 1=page, 2=block, 3=para, 4=line, 5=word
-                    'block_num': data['block_num'][i],
-                    'line_num': data['line_num'][i],
-                })
+                regions.append(TextRegion(
+                    text=text,
+                    x=data['left'][i],
+                    y=data['top'][i],
+                    width=data['width'][i],
+                    height=data['height'][i],
+                    confidence=conf / 100,
+                    level=data['level'][i],
+                    block_num=data['block_num'][i],
+                    line_num=data['line_num'][i],
+                ))
 
             # Combine into full text
-            full_text = ' '.join(r['text'] for r in regions)
-            avg_conf = sum(r['confidence'] for r in regions) / len(regions) if regions else 0
+            full_text = ' '.join(r.text for r in regions)
+            avg_conf = sum(r.confidence for r in regions) / len(regions) if regions else 0
 
             return VisionExtractionResult(
                 success=True,
@@ -255,10 +258,10 @@ class VisionExtractor:
 
             # Pattern 2: Detect potential table structure from regions
             # Group regions by Y coordinate (same row)
-            rows = {}
+            rows: Dict[int, List[TextRegion]] = {}
             for region in regions_result.regions:
-                if region['level'] >= 4:  # Line or word level
-                    y_bucket = region['y'] // 20 * 20  # Group by ~20px rows
+                if region.level >= 4:  # Line or word level
+                    y_bucket = region.y // 20 * 20  # Group by ~20px rows
                     if y_bucket not in rows:
                         rows[y_bucket] = []
                     rows[y_bucket].append(region)
@@ -270,8 +273,8 @@ class VisionExtractor:
                 table_data = []
 
                 for y, items in sorted_rows:
-                    sorted_items = sorted(items, key=lambda x: x['x'])
-                    row_text = [item['text'] for item in sorted_items]
+                    sorted_items = sorted(items, key=lambda x: x.x)
+                    row_text = [item.text for item in sorted_items]
                     if row_text:
                         table_data.append(row_text)
 

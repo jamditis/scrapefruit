@@ -23,6 +23,17 @@ class FetchResult:
     response_time_ms: int = 0
 
 
+@dataclass
+class HeadResult:
+    """Result from a HEAD request operation."""
+
+    success: bool
+    status_code: int = 0
+    content_type: str = ""
+    content_length: Optional[int] = None
+    error: Optional[str] = None
+
+
 class HTTPFetcher:
     """Simple HTTP fetcher with user-agent rotation and retry logic."""
 
@@ -130,11 +141,16 @@ class HTTPFetcher:
             response_time_ms=response_time if "response_time" in locals() else 0,
         )
 
-    def head(self, url: str, timeout: int = 10) -> Dict[str, Any]:
+    def head(self, url: str, timeout: int = 10) -> HeadResult:
         """
         Perform HEAD request to check URL status.
 
-        Returns dict with status_code and content_type.
+        Args:
+            url: The URL to check
+            timeout: Request timeout in seconds
+
+        Returns:
+            HeadResult with status, content type, and length
         """
         try:
             response = self.session.head(
@@ -143,13 +159,16 @@ class HTTPFetcher:
                 timeout=timeout,
                 allow_redirects=True,
             )
-            return {
-                "status_code": response.status_code,
-                "content_type": response.headers.get("Content-Type", ""),
-                "content_length": response.headers.get("Content-Length"),
-            }
+            content_length = response.headers.get("Content-Length")
+            return HeadResult(
+                success=response.status_code == 200,
+                status_code=response.status_code,
+                content_type=response.headers.get("Content-Type", ""),
+                content_length=int(content_length) if content_length else None,
+            )
         except RequestException as e:
-            return {
-                "status_code": 0,
-                "error": str(e),
-            }
+            return HeadResult(
+                success=False,
+                status_code=0,
+                error=str(e),
+            )

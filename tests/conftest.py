@@ -310,3 +310,229 @@ def temp_screenshot_bytes(temp_image):
     """Get screenshot as bytes."""
     with open(temp_image, 'rb') as f:
         return f.read()
+
+
+# ============================================================================
+# Books to Scrape Fixtures (Deterministic Scraping Target)
+# ============================================================================
+
+BOOKS_TO_SCRAPE_BOOK_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>A Light in the Attic | Books to Scrape - Sandbox</title>
+</head>
+<body>
+<div class="container-fluid page">
+    <div class="page_inner">
+        <ul class="breadcrumb">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="catalogue/category/books_1/index.html">Books</a></li>
+            <li><a href="catalogue/category/books/poetry_23/index.html">Poetry</a></li>
+            <li class="active">A Light in the Attic</li>
+        </ul>
+        <div id="content_inner">
+            <article class="product_page">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <div id="product_gallery" class="carousel">
+                            <div class="thumbnail">
+                                <img src="media/cache/fe/72/fe72f0532301ec28892ae79a629a293c.jpg"
+                                     alt="A Light in the Attic" class="thumbnail">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 product_main">
+                        <h1>A Light in the Attic</h1>
+                        <p class="price_color">£51.77</p>
+                        <p class="instock availability">
+                            <i class="icon-ok"></i>
+                            In stock (22 available)
+                        </p>
+                        <p class="star-rating Three">
+                            <i class="icon-star"></i>
+                            <i class="icon-star"></i>
+                            <i class="icon-star"></i>
+                            <i class="icon-star"></i>
+                            <i class="icon-star"></i>
+                        </p>
+                    </div>
+                </div>
+                <table class="table table-striped">
+                    <tr><th>UPC</th><td>a897fe39b1053632</td></tr>
+                    <tr><th>Product Type</th><td>Books</td></tr>
+                    <tr><th>Price (excl. tax)</th><td>£51.77</td></tr>
+                    <tr><th>Price (incl. tax)</th><td>£51.77</td></tr>
+                    <tr><th>Tax</th><td>£0.00</td></tr>
+                    <tr><th>Availability</th><td>In stock (22 available)</td></tr>
+                    <tr><th>Number of reviews</th><td>0</td></tr>
+                </table>
+                <div id="product_description" class="sub-header">
+                    <h2>Product Description</h2>
+                </div>
+                <p>It's hard to imagine a world without A Light in the Attic. This now-classic
+                collection of poetry and drawings from Shel Silverstein celebrates its 20th
+                anniversary with this special edition. Silverstein's humorous and creative verse
+                can amuse the dowdiest of readers. Lemon-faced adults and fidgety kids sit still
+                and read these rhythmic words and laugh and smile and love that Silverstein.
+                Special features include twelve new poems as well as classroom ideas and a reading
+                group guide.</p>
+            </article>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+"""
+
+
+BOOKS_TO_SCRAPE_CATALOG_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>All products | Books to Scrape - Sandbox</title>
+</head>
+<body>
+<div class="container-fluid page">
+    <div class="page_inner">
+        <div class="row">
+            <div class="col-sm-8 col-md-9">
+                <div class="page-header action">
+                    <h1>All products <small>1000 results</small></h1>
+                </div>
+                <section>
+                    <div>
+                        <ol class="row">
+                            <li class="col-xs-6 col-sm-4 col-md-3 col-lg-3">
+                                <article class="product_pod">
+                                    <div class="image_container">
+                                        <a href="a-light-in-the-attic_1000/index.html">
+                                            <img src="media/cache/2c/da/2cdad67c44b002e7ead0cc35693c0e8b.jpg"
+                                                 alt="A Light in the Attic" class="thumbnail">
+                                        </a>
+                                    </div>
+                                    <p class="star-rating Three">
+                                        <i class="icon-star"></i>
+                                    </p>
+                                    <h3><a href="a-light-in-the-attic_1000/index.html"
+                                           title="A Light in the Attic">A Light in the ...</a></h3>
+                                    <div class="product_price">
+                                        <p class="price_color">£51.77</p>
+                                        <p class="instock availability"><i class="icon-ok"></i> In stock</p>
+                                        <form>
+                                            <button type="submit" class="btn btn-primary btn-block"
+                                                    data-loading-text="Adding...">Add to basket</button>
+                                        </form>
+                                    </div>
+                                </article>
+                            </li>
+                            <li class="col-xs-6 col-sm-4 col-md-3 col-lg-3">
+                                <article class="product_pod">
+                                    <div class="image_container">
+                                        <a href="tipping-the-velvet_999/index.html">
+                                            <img src="media/cache/26/0c/260c6ae16bce31c8f8c95daddd9f4a1c.jpg"
+                                                 alt="Tipping the Velvet" class="thumbnail">
+                                        </a>
+                                    </div>
+                                    <p class="star-rating One">
+                                        <i class="icon-star"></i>
+                                    </p>
+                                    <h3><a href="tipping-the-velvet_999/index.html"
+                                           title="Tipping the Velvet">Tipping the Velvet</a></h3>
+                                    <div class="product_price">
+                                        <p class="price_color">£53.74</p>
+                                        <p class="instock availability"><i class="icon-ok"></i> In stock</p>
+                                        <form>
+                                            <button type="submit" class="btn btn-primary btn-block"
+                                                    data-loading-text="Adding...">Add to basket</button>
+                                        </form>
+                                    </div>
+                                </article>
+                            </li>
+                            <li class="col-xs-6 col-sm-4 col-md-3 col-lg-3">
+                                <article class="product_pod">
+                                    <div class="image_container">
+                                        <a href="soumission_998/index.html">
+                                            <img src="media/cache/3e/ef/3eef99c9d9adef34639f510662022571.jpg"
+                                                 alt="Soumission" class="thumbnail">
+                                        </a>
+                                    </div>
+                                    <p class="star-rating One">
+                                        <i class="icon-star"></i>
+                                    </p>
+                                    <h3><a href="soumission_998/index.html"
+                                           title="Soumission">Soumission</a></h3>
+                                    <div class="product_price">
+                                        <p class="price_color">£50.10</p>
+                                        <p class="instock availability"><i class="icon-ok"></i> In stock</p>
+                                        <form>
+                                            <button type="submit" class="btn btn-primary btn-block"
+                                                    data-loading-text="Adding...">Add to basket</button>
+                                        </form>
+                                    </div>
+                                </article>
+                            </li>
+                        </ol>
+                    </div>
+                </section>
+                <div>
+                    <ul class="pager">
+                        <li class="current">Page 1 of 50</li>
+                        <li class="next"><a href="page-2.html">next</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+"""
+
+
+@pytest.fixture
+def books_to_scrape_book():
+    """Realistic book detail page HTML from Books to Scrape sandbox."""
+    return BOOKS_TO_SCRAPE_BOOK_HTML
+
+
+@pytest.fixture
+def books_to_scrape_catalog():
+    """Realistic catalog listing page HTML from Books to Scrape sandbox."""
+    return BOOKS_TO_SCRAPE_CATALOG_HTML
+
+
+@pytest.fixture
+def books_to_scrape_selectors():
+    """Common CSS selectors for Books to Scrape site."""
+    return {
+        # Book detail page selectors
+        "title": "article.product_page h1",
+        "price": "p.price_color",
+        "availability": "p.instock.availability",
+        "description": "#product_description + p",
+        "upc": "table tr:nth-child(1) td",
+        "rating": "p.star-rating",
+        "breadcrumb": "ul.breadcrumb li",
+        # Catalog page selectors
+        "books": "article.product_pod",
+        "book_title": "article.product_pod h3 a",
+        "book_price": "article.product_pod .price_color",
+        "book_link": "article.product_pod .image_container a",
+        "pagination": "ul.pager li.current",
+        "next_page": "ul.pager li.next a",
+    }
+
+
+# ============================================================================
+# Utility Functions for Tests
+# ============================================================================
+
+def pad_html(base_html: str) -> str:
+    """
+    Add padding to HTML to meet minimum content requirements.
+
+    Use this helper for inline test HTML that needs to pass the
+    poison pill detector's content length check (500 chars, 50 words).
+    """
+    return _pad_content(base_html)

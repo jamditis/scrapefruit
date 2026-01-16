@@ -1,6 +1,7 @@
 """Fetcher modules for retrieving web pages and media."""
 
-from core.scraping.fetchers.http_fetcher import HTTPFetcher, FetchResult
+from core.scraping.fetchers.base import BaseFetcher, BrowserFetcher, BaseFetchResult
+from core.scraping.fetchers.http_fetcher import HTTPFetcher, FetchResult, HeadResult
 from core.scraping.fetchers.playwright_fetcher import PlaywrightFetcher, PlaywrightResult
 from core.scraping.fetchers.agent_browser_fetcher import AgentBrowserFetcher, AgentBrowserResult
 from core.scraping.fetchers.browser_use_fetcher import (
@@ -37,9 +38,14 @@ except ImportError:
     HAS_VIDEO_FETCHER = False
 
 __all__ = [
+    # Base classes
+    "BaseFetcher",
+    "BrowserFetcher",
+    "BaseFetchResult",
     # Basic fetchers (free tier)
     "HTTPFetcher",
     "FetchResult",
+    "HeadResult",
     "PlaywrightFetcher",
     "PlaywrightResult",
     "PuppeteerFetcher",

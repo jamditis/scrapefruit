@@ -4,9 +4,13 @@ from typing import Optional, List, Any
 from lxml import html
 from lxml.cssselect import CSSSelector
 
+from core.scraping.extractors.base import BaseExtractor
 
-class CSSExtractor:
+
+class CSSExtractor(BaseExtractor):
     """Extract data from HTML using CSS selectors."""
+
+    METHOD_NAME = "css"
 
     def extract_one(
         self,
