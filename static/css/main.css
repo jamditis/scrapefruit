@@ -897,18 +897,32 @@ input[type="checkbox"]:focus {
     height: 4px;
     background: rgba(255, 255, 255, 0.1);
     overflow: hidden;
+    display: flex;
 }
 
 .progress-bar-fill {
     height: 100%;
-    background: var(--acid);
-    box-shadow: 0 0 10px var(--acid);
     transition: width var(--transition-base);
 }
 
-.job-card.selected .progress-bar-fill,
-.job-card:hover .progress-bar-fill {
+.progress-bar-success {
+    background: var(--acid);
+    box-shadow: 0 0 10px var(--acid);
+}
+
+.progress-bar-failure {
+    background: var(--signal);
+    box-shadow: 0 0 10px var(--signal);
+}
+
+.job-card.selected .progress-bar-success,
+.job-card:hover .progress-bar-success {
     box-shadow: 0 0 15px var(--acid-glow);
+}
+
+.job-card.selected .progress-bar-failure,
+.job-card:hover .progress-bar-failure {
+    box-shadow: 0 0 15px rgba(255, 42, 42, 0.4);
 }
 
 .job-card-meta {
