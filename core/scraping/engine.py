@@ -6,10 +6,19 @@ from dataclasses import dataclass, field
 
 from core.scraping.fetchers.http_fetcher import HTTPFetcher
 from core.scraping.fetchers.playwright_fetcher import PlaywrightFetcher
-from core.scraping.fetchers.puppeteer_fetcher import PuppeteerFetcher
 from core.scraping.fetchers.agent_browser_fetcher import AgentBrowserFetcher
+from core.scraping.fetchers.browser_use_fetcher import BrowserUseFetcher
 from core.scraping.extractors.css_extractor import CSSExtractor
+
+# Optional: pyppeteer may not be installed
+try:
+    from core.scraping.fetchers.puppeteer_fetcher import PuppeteerFetcher
+    HAS_PUPPETEER = True
+except ImportError:
+    PuppeteerFetcher = None
+    HAS_PUPPETEER = False
 from core.scraping.extractors.xpath_extractor import XPathExtractor
+from core.scraping.extractors.vision_extractor import get_vision_extractor
 from core.poison_pills.detector import PoisonPillDetector
 import config
 
@@ -28,6 +37,8 @@ class ScrapeResult:
     response_time_ms: int = 0
     poison_pill: Optional[str] = None
     cascade_attempts: List[Dict[str, Any]] = field(default_factory=list)
+    screenshot: Optional[bytes] = None
+    vision_extracted: bool = False  # True if data came from OCR
 
     def __post_init__(self):
         if self.data is None:
@@ -55,20 +66,30 @@ class ScrapingEngine:
     Main scraping engine implementing configurable cascade strategy.
 
     Cascade order (configurable):
-    1. HTTP (fastest, lightweight)
-    2. Playwright (JS rendering, stealth)
-    3. Puppeteer (alternative fingerprint)
-    4. Agent-browser (AI-optimized, accessibility tree)
+    1. HTTP (fastest, lightweight) - FREE
+    2. Playwright (JS rendering, stealth) - FREE
+    3. Puppeteer (alternative fingerprint) - FREE
+    4. Agent-browser (accessibility tree, semantic locators) - PREMIUM
+    5. Browser-use (AI-driven, LLM-controlled) - PREMIUM
 
     Falls back to next method on:
     - Blocked status codes (403, 429, 503)
     - Anti-bot detection patterns
     - Empty or JS-heavy content
     - Poison pill detection
+
+    Vision fallback:
+    - If DOM extraction fails, captures screenshot and uses OCR
+
+    Premium methods (agent_browser, browser_use) use more resources
+    and may require API keys or donation to use.
     """
 
     # Available fetcher types
-    FETCHER_TYPES = ["http", "playwright", "puppeteer", "agent_browser"]
+    FETCHER_TYPES = ["http", "playwright", "puppeteer", "agent_browser", "browser_use"]
+
+    # Premium fetchers (may require donation or API key)
+    PREMIUM_FETCHERS = ["agent_browser", "browser_use"]
 
     def __init__(self):
         # Fetcher registry - lazy loaded
@@ -99,14 +120,21 @@ class ScrapingEngine:
         elif method == "playwright":
             fetcher = PlaywrightFetcher()
         elif method == "puppeteer":
+            if not HAS_PUPPETEER:
+                return None
             try:
                 fetcher = PuppeteerFetcher()
             except Exception:
-                # Pyppeteer not installed
+                # Pyppeteer initialization failed
                 return None
         elif method == "agent_browser":
             fetcher = AgentBrowserFetcher()
             # Check if CLI is available
+            if not fetcher.is_available():
+                return None
+        elif method == "browser_use":
+            fetcher = BrowserUseFetcher()
+            # Check if browser-use is installed and has API key
             if not fetcher.is_available():
                 return None
 
@@ -249,6 +277,7 @@ class ScrapingEngine:
         method: str,
         url: str,
         timeout: int,
+        take_screenshot: bool = False,
     ) -> Dict[str, Any]:
         """
         Fetch URL using a specific fetcher.
@@ -258,16 +287,19 @@ class ScrapingEngine:
             method: Method name for logging
             url: URL to fetch
             timeout: Timeout in milliseconds
+            take_screenshot: Whether to capture a screenshot (browser methods only)
 
         Returns:
             Dict with fetch result
         """
         try:
             # HTTP fetcher uses seconds, others use milliseconds
+            # HTTP doesn't support screenshots
             if method == "http":
                 result = fetcher.fetch(url, timeout=timeout // 1000)
             else:
-                result = fetcher.fetch(url, timeout=timeout)
+                # Browser-based fetchers support screenshots
+                result = fetcher.fetch(url, timeout=timeout, take_screenshot=take_screenshot)
 
             return {
                 "method": method,
@@ -276,6 +308,7 @@ class ScrapingEngine:
                 "status_code": result.status_code,
                 "error": result.error,
                 "response_time_ms": result.response_time_ms,
+                "screenshot": getattr(result, 'screenshot', None),
             }
 
         except Exception as e:
@@ -286,6 +319,7 @@ class ScrapingEngine:
                 "status_code": 0,
                 "error": str(e),
                 "response_time_ms": 0,
+                "screenshot": None,
             }
 
     def _should_fallback(
@@ -404,15 +438,22 @@ class ScrapingEngine:
         rules: List[Dict[str, Any]],
         timeout: int = 30000,
         cascade_config: Optional[Dict[str, Any]] = None,
+        enable_vision_fallback: bool = True,
     ) -> ScrapeResult:
         """
         Scrape a URL and extract data using provided rules.
+
+        Uses a two-phase extraction strategy:
+        1. First attempts DOM-based extraction (CSS/XPath selectors)
+        2. If DOM extraction fails and vision is available, falls back to
+           screenshot + OCR for text extraction
 
         Args:
             url: URL to scrape
             rules: List of extraction rules [{name, selector_type, selector_value, attribute, is_list}]
             timeout: Timeout in milliseconds
             cascade_config: Optional cascade configuration override
+            enable_vision_fallback: Try OCR on screenshot if DOM extraction fails
 
         Returns:
             ScrapeResult with extracted data
@@ -450,7 +491,7 @@ class ScrapingEngine:
                     cascade_attempts=fetch_result.get("attempts", []),
                 )
 
-        # Extract data using rules
+        # Phase 1: Extract data using DOM rules
         extracted_data = {}
         extraction_errors = []
 
@@ -484,7 +525,31 @@ class ScrapingEngine:
             except Exception as e:
                 extraction_errors.append(f"Error extracting '{name}': {str(e)}")
 
-        # Determine success
+        # Determine success from DOM extraction
+        dom_success = len(extracted_data) > 0 and len(extraction_errors) == 0
+        screenshot = None
+        vision_extracted = False
+
+        # Phase 2: Vision fallback if DOM extraction failed
+        if not dom_success and enable_vision_fallback and rules:
+            vision_result = self._try_vision_extraction(url, timeout, cascade_config)
+            if vision_result:
+                screenshot = vision_result.get("screenshot")
+                vision_data = vision_result.get("data", {})
+
+                if vision_data:
+                    # Merge vision data with any partial DOM data
+                    for key, value in vision_data.items():
+                        if key not in extracted_data:
+                            extracted_data[key] = value
+
+                    vision_extracted = True
+
+                    # Clear extraction errors if vision found data
+                    if extracted_data:
+                        extraction_errors = []
+
+        # Determine final success
         success = len(extracted_data) > 0 and len(extraction_errors) == 0
 
         # Build error message
@@ -492,6 +557,8 @@ class ScrapingEngine:
             error_msg = "; ".join(extraction_errors)
         elif len(extracted_data) == 0 and rules:
             error_msg = f"No data extracted (0/{len(rules)} selectors matched)"
+            if enable_vision_fallback:
+                error_msg += " - vision fallback also failed"
         else:
             error_msg = None
 
@@ -505,7 +572,82 @@ class ScrapingEngine:
             error=error_msg,
             response_time_ms=fetch_result.get("response_time_ms", 0),
             cascade_attempts=fetch_result.get("attempts", []),
+            screenshot=screenshot,
+            vision_extracted=vision_extracted,
         )
+
+    def _try_vision_extraction(
+        self,
+        url: str,
+        timeout: int,
+        cascade_config: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Attempt to extract data using screenshot + OCR.
+
+        Takes a screenshot using a browser-based fetcher, then uses
+        Tesseract OCR to extract text and structure from the image.
+
+        Args:
+            url: URL to screenshot
+            timeout: Timeout in milliseconds
+            cascade_config: Cascade configuration
+
+        Returns:
+            Dict with 'screenshot' bytes and 'data' dict, or None if failed
+        """
+        vision_extractor = get_vision_extractor()
+        if not vision_extractor:
+            return None  # Tesseract not available
+
+        # Try to get a screenshot using browser-based fetcher
+        screenshot = None
+
+        # Prefer Playwright for screenshots
+        for method in ["playwright", "puppeteer"]:
+            fetcher = self._get_fetcher(method)
+            if fetcher:
+                try:
+                    result = self._fetch_with_method(
+                        fetcher, method, url, timeout, take_screenshot=True
+                    )
+                    if result.get("screenshot"):
+                        screenshot = result["screenshot"]
+                        break
+                except Exception:
+                    continue
+
+        if not screenshot:
+            return None
+
+        # Run OCR on screenshot
+        try:
+            vision_result = vision_extractor.extract_structured(screenshot)
+
+            if not vision_result.success:
+                return {"screenshot": screenshot, "data": {}}
+
+            # Build extracted data from OCR results
+            extracted_data = {}
+
+            # Add raw text as fallback
+            if vision_result.text:
+                extracted_data["_ocr_text"] = vision_result.text
+
+            # Add any structured data found
+            if vision_result.structured_data:
+                for key, value in vision_result.structured_data.items():
+                    if not key.startswith("_"):
+                        extracted_data[key] = value
+
+            return {
+                "screenshot": screenshot,
+                "data": extracted_data,
+                "confidence": vision_result.confidence,
+            }
+
+        except Exception as e:
+            return {"screenshot": screenshot, "data": {}, "error": str(e)}
 
     def test_selector(
         self,

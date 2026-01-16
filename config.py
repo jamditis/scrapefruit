@@ -62,6 +62,8 @@ ANTI_BOT_PATTERNS = [
 ]
 
 # Cascade scraping configuration
+# agent_browser requires: npm install -g agent-browser && agent-browser install
+# See: https://github.com/vercel-labs/agent-browser
 DEFAULT_CASCADE_ORDER = ["http", "playwright", "puppeteer", "agent_browser"]
 CASCADE_ENABLED = True
 

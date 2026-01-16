@@ -27,5 +27,9 @@ google-auth>=2.0
 # Utils
 python-dotenv>=1.0
 
+# Vision/OCR (optional - for screenshot-based extraction)
+Pillow>=10.0
+pytesseract>=0.3.10
+
 # Production server
 waitress>=3.0

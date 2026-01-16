@@ -3,12 +3,20 @@
 import asyncio
 import random
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from dataclasses import dataclass
 
-from pyppeteer import launch
-from pyppeteer.browser import Browser
-from pyppeteer.page import Page
+# Lazy import pyppeteer - not all systems have it
+try:
+    from pyppeteer import launch
+    HAS_PYPPETEER = True
+except ImportError:
+    HAS_PYPPETEER = False
+    launch = None
+
+if TYPE_CHECKING:
+    from pyppeteer.browser import Browser
+    from pyppeteer.page import Page
 
 import config
 
@@ -35,7 +43,9 @@ class PuppeteerFetcher:
     """
 
     def __init__(self):
-        self.browser: Optional[Browser] = None
+        if not HAS_PYPPETEER:
+            raise ImportError("pyppeteer is required. Install with: pip install pyppeteer")
+        self.browser: Optional["Browser"] = None
         self._lock = asyncio.Lock()
 
     async def _ensure_browser(self):
@@ -56,7 +66,7 @@ class PuppeteerFetcher:
                 ignoreHTTPSErrors=True,
             )
 
-    async def _apply_stealth(self, page: Page):
+    async def _apply_stealth(self, page: "Page"):
         """Apply stealth techniques to bypass bot detection."""
         # Override webdriver property
         await page.evaluateOnNewDocument(
@@ -248,7 +258,7 @@ class PuppeteerFetcher:
 
     def __del__(self):
         """Cleanup on destruction."""
-        if self.browser:
+        if hasattr(self, 'browser') and self.browser:
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():

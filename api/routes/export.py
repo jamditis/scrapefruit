@@ -139,7 +139,7 @@ def export_sheets():
         return jsonify({"error": "Job not found"}), 404
 
     try:
-        from core.output.formatters.sheets_formatter import export_to_sheets
+        from core.output.formatters.sheets_formatter import export_to_sheets, SheetsExportError
 
         result = export_to_sheets(job_id, spreadsheet_id, worksheet_name)
         return jsonify({
@@ -147,9 +147,20 @@ def export_sheets():
             "spreadsheet_id": spreadsheet_id,
             "worksheet": worksheet_name,
             "rows_exported": result.get("rows_exported", 0),
+            "message": result.get("message", ""),
         })
+    except SheetsExportError as e:
+        # Return detailed error information
+        return jsonify({
+            "success": False,
+            "error_type": e.error_type.value,
+            "error": e.message,
+            "details": e.details,
+            "suggestion": e.suggestion,
+        }), 400 if e.error_type.value in ["missing_credentials", "invalid_credentials"] else 500
     except Exception as e:
         return jsonify({
             "success": False,
             "error": str(e),
+            "error_type": "unknown",
         }), 500

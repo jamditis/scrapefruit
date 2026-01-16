@@ -93,7 +93,9 @@ def fetch_html():
         return jsonify({"error": "URL is required"}), 400
 
     try:
-        result = get_engine().fetch_page(url, force_playwright=use_playwright)
+        # Fix: use force_method parameter (not force_playwright)
+        force_method = "playwright" if use_playwright else None
+        result = get_engine().fetch_page(url, force_method=force_method)
         return jsonify({
             "success": True,
             "html": result.get("html", ""),

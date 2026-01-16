@@ -45,6 +45,11 @@ class PoisonPillDetector:
         if result.is_poison:
             return result
 
+        # Check for rate limiting (before anti-bot, since anti-bot patterns include "rate limit")
+        result = self._check_rate_limited(html)
+        if result.is_poison:
+            return result
+
         # Check for anti-bot
         result = self._check_anti_bot(html)
         if result.is_poison:
@@ -122,11 +127,50 @@ class PoisonPillDetector:
 
         return PoisonPillResult.clean()
 
+    def _check_rate_limited(self, html: str) -> PoisonPillResult:
+        """Check for rate limiting indicators."""
+        html_lower = html.lower()
+
+        rate_limit_patterns = [
+            r"rate\s*limit",
+            r"too\s+many\s+requests",
+            r"request\s+limit\s+exceeded",
+            r"slow\s+down",
+            r"try\s+again\s+(later|in\s+\d+)",
+            r"temporarily\s+blocked",
+            r"quota\s+exceeded",
+            r"api\s+limit",
+            r"throttl(ed|ing)",
+        ]
+
+        for pattern in rate_limit_patterns:
+            if re.search(pattern, html_lower):
+                return PoisonPillResult.detected(
+                    PoisonPillType.RATE_LIMITED,
+                    severity="high",
+                    message="Rate limiting detected - server is throttling requests",
+                    retry_possible=True,
+                )
+
+        # Check for 429 status in meta tags or response indicators
+        if 'status="429"' in html_lower or "429 too many" in html_lower:
+            return PoisonPillResult.detected(
+                PoisonPillType.RATE_LIMITED,
+                severity="high",
+                message="HTTP 429 Too Many Requests",
+                retry_possible=True,
+            )
+
+        return PoisonPillResult.clean()
+
     def _check_anti_bot(self, html: str) -> PoisonPillResult:
         """Check for anti-bot protection."""
         html_lower = html.lower()
 
-        for pattern in config.ANTI_BOT_PATTERNS:
+        # Filter out rate limit pattern - that's handled by _check_rate_limited
+        anti_bot_patterns = [p for p in config.ANTI_BOT_PATTERNS if "rate" not in p]
+
+        for pattern in anti_bot_patterns:
             if re.search(pattern, html_lower):
                 return PoisonPillResult.detected(
                     PoisonPillType.ANTI_BOT,
