@@ -95,7 +95,8 @@ const JobManager = {
                     ${job.progress_total > 0 ? `
                         <div class="job-card-progress">
                             <div class="progress-bar">
-                                <div class="progress-bar-fill" style="width: ${percent}%"></div>
+                                <div class="progress-bar-fill progress-bar-success" style="width: ${(job.success_count / job.progress_total) * 100}%"></div>
+                                <div class="progress-bar-fill progress-bar-failure" style="width: ${(job.failure_count / job.progress_total) * 100}%"></div>
                             </div>
                         </div>
                     ` : ''}
@@ -309,9 +310,13 @@ const JobManager = {
         // Update job card in list
         const card = this.els.jobsList.querySelector(`[data-job-id="${job.id}"]`);
         if (card) {
-            const progressFill = card.querySelector('.progress-bar-fill');
-            if (progressFill) {
-                progressFill.style.width = `${percent}%`;
+            const successFill = card.querySelector('.progress-bar-success');
+            const failureFill = card.querySelector('.progress-bar-failure');
+            if (successFill && job.progress_total > 0) {
+                successFill.style.width = `${(job.success_count / job.progress_total) * 100}%`;
+            }
+            if (failureFill && job.progress_total > 0) {
+                failureFill.style.width = `${(job.failure_count / job.progress_total) * 100}%`;
             }
             const meta = card.querySelector('.job-card-meta');
             if (meta) {
