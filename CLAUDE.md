@@ -544,3 +544,20 @@ ollama serve
 ```
 
 The LLM service auto-detects Ollama and falls back to cloud APIs if unavailable.
+
+
+---
+
+## Multi-machine workflow
+
+This repo is developed across multiple machines (MacBook, work Windows PC, home Windows PC). GitHub is the source of truth.
+
+**Before switching machines:**
+```bash
+git add . && git commit -m "WIP" && git push
+```
+
+**After switching machines:**
+```bash
+git pull
+```
