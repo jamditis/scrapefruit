@@ -175,11 +175,9 @@ const App = {
             const runningJobs = jobs.filter(j => j.status === 'running');
 
             if (runningJobs.length === 0) {
-                this.updateStatusIndicator(false);
+                this.updateStatusIndicator(false, null);
                 return;
             }
-
-            this.updateStatusIndicator(true);
 
             // Update each running job
             for (const job of runningJobs) {
@@ -196,6 +194,13 @@ const App = {
                         failure_count: progress.failure,
                     });
 
+                    // Update status indicator with progress
+                    this.updateStatusIndicator(true, {
+                        current: progress.current,
+                        total: progress.total,
+                        jobName: job.name,
+                    });
+
                     // Update stats in place (doesn't reset scroll)
                     const selectedId = State.get('selectedJobId');
                     if (selectedId === job.id) {
@@ -209,6 +214,25 @@ const App = {
                             JobManager.renderJobDetail();
                         }
                     }
+
+                    // Show toast notification when job completes
+                    if (wasRunning && isNowDone && typeof Toast !== 'undefined') {
+                        if (progress.status === 'completed') {
+                            Toast.jobEvent('job_completed', {
+                                success: progress.success,
+                                failed: progress.failure,
+                            });
+                        } else if (progress.status === 'failed') {
+                            Toast.jobEvent('job_failed', {
+                                error: 'Job failed to complete',
+                            });
+                        }
+
+                        // Clean up progress tracker
+                        if (typeof ProgressTracker !== 'undefined') {
+                            ProgressTracker.clearJob(job.id);
+                        }
+                    }
                 } catch (error) {
                     // Errors handled by API layer with backoff, just skip this poll
                 }
@@ -218,13 +242,18 @@ const App = {
         }
     },
 
-    updateStatusIndicator(isRunning) {
+    updateStatusIndicator(isRunning, progress = null) {
         const indicator = document.getElementById('status-indicator');
         const text = indicator.querySelector('.status-text');
 
         if (isRunning) {
             indicator.classList.add('running');
-            text.textContent = 'Scraping...';
+            if (progress && progress.total > 0) {
+                const percent = Math.round((progress.current / progress.total) * 100);
+                text.textContent = `${progress.current}/${progress.total} (${percent}%)`;
+            } else {
+                text.textContent = 'Scraping...';
+            }
         } else {
             indicator.classList.remove('running');
             text.textContent = 'Ready';

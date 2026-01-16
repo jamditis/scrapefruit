@@ -176,7 +176,7 @@ const JobManager = {
                 <div class="detail-section">
                     <h3>Progress</h3>
                     <div class="stats-grid">
-                        <div class="stat-card">
+                        <div class="stat-card ${job.status === 'running' ? 'live' : ''}">
                             <div class="stat-value">${percent}%</div>
                             <div class="stat-label">Complete</div>
                         </div>
@@ -194,6 +194,7 @@ const JobManager = {
                             ${job.failure_count > 0 ? `<button class="btn btn-xs btn-ghost" id="btn-retry-failed" style="margin-top: var(--spacing-xs);">Retry in new job</button>` : ''}
                         </div>
                     </div>
+                    <div id="progress-detail-container"></div>
                 </div>
 
                 <div class="detail-section">
@@ -331,6 +332,36 @@ const JobManager = {
             statCards[1].querySelector('.stat-value').textContent = job.progress_total;
             statCards[2].querySelector('.stat-value').textContent = job.success_count;
             statCards[3].querySelector('.stat-value').textContent = job.failure_count;
+
+            // Update live indicator
+            if (job.status === 'running') {
+                statCards[0].classList.add('live');
+            } else {
+                statCards[0].classList.remove('live');
+            }
+        }
+
+        // Update progress detail panel with ETA
+        if (typeof ProgressTracker !== 'undefined' && job.status === 'running') {
+            const container = document.getElementById('progress-detail-container');
+            if (container) {
+                // Update progress tracker with API data
+                ProgressTracker.updateFromApi(job.id, {
+                    current: job.progress_current,
+                    total: job.progress_total,
+                    success: job.success_count,
+                    failure: job.failure_count,
+                });
+
+                // Render the progress detail panel
+                ProgressTracker.renderProgressDetail(job.id, container);
+            }
+        } else {
+            // Hide progress detail when not running
+            const container = document.getElementById('progress-detail-container');
+            if (container && job.status !== 'running') {
+                container.innerHTML = '';
+            }
         }
 
         // Update job card in list
@@ -581,6 +612,11 @@ const JobManager = {
             switch (action) {
                 case 'start':
                     result = await API.startJob(jobId);
+                    // Initialize progress tracker
+                    if (typeof ProgressTracker !== 'undefined') {
+                        const job = result?.job;
+                        ProgressTracker.initJob(jobId, job?.progress_total || 0);
+                    }
                     // Start activity log polling
                     if (typeof ActivityLog !== 'undefined') {
                         ActivityLog.startPolling(jobId);
@@ -592,12 +628,28 @@ const JobManager = {
                     if (typeof ActivityLog !== 'undefined') {
                         ActivityLog.stopPolling();
                     }
+                    // Show toast
+                    if (typeof Toast !== 'undefined') {
+                        const job = result?.job;
+                        Toast.warning('Job paused', {
+                            title: 'Paused',
+                            progress: job ? { current: job.progress_current, total: job.progress_total } : null,
+                        });
+                    }
                     break;
                 case 'stop':
                     result = await API.stopJob(jobId);
                     // Stop activity log polling
                     if (typeof ActivityLog !== 'undefined') {
                         ActivityLog.stopPolling();
+                    }
+                    // Show toast
+                    if (typeof Toast !== 'undefined') {
+                        Toast.warning('Job stopped', { title: 'Cancelled' });
+                    }
+                    // Clean up progress tracker
+                    if (typeof ProgressTracker !== 'undefined') {
+                        ProgressTracker.clearJob(jobId);
                     }
                     break;
                 case 'restart':

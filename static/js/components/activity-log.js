@@ -1,6 +1,6 @@
 /**
  * Activity Log Component
- * Real-time log display for job execution
+ * Real-time log display for job execution with enhanced details
  */
 const ActivityLog = {
     currentJobId: null,
@@ -9,6 +9,27 @@ const ActivityLog = {
     POLL_RATE: 1000, // Poll every second for new logs
     activeFilter: 'all',
     isFetching: false, // Guard against concurrent fetches
+    errorCounts: { total: 0, byType: {} }, // Track error categories
+    successCount: 0,
+    lastLogTimestamp: null,
+
+    // Error type descriptions for better UX
+    errorDescriptions: {
+        'poison_pill': 'Anti-bot protection detected',
+        'cloudflare': 'Cloudflare challenge blocked',
+        'captcha': 'CAPTCHA verification required',
+        'paywall': 'Paywall or subscription required',
+        'rate_limit': 'Rate limit exceeded',
+        'timeout': 'Request timed out',
+        'extraction_failed': 'No data could be extracted',
+        'exception': 'Unexpected error occurred',
+        'network': 'Network connection failed',
+        '403': 'Access forbidden (403)',
+        '404': 'Page not found (404)',
+        '429': 'Too many requests (429)',
+        '500': 'Server error (500)',
+        '503': 'Service unavailable (503)',
+    },
 
     /**
      * Render the activity log panel
@@ -21,20 +42,27 @@ const ActivityLog = {
             <div class="activity-log">
                 <div class="activity-header">
                     <h4>
-                        Activity Log
+                        Activity log
                         <span class="log-count" id="log-count">0</span>
                     </h4>
                     <div class="activity-controls">
                         <div class="activity-filters">
                             <button class="activity-filter active" data-level="all">All</button>
-                            <button class="activity-filter" data-level="success">Success</button>
-                            <button class="activity-filter" data-level="error">Errors</button>
+                            <button class="activity-filter" data-level="success">
+                                Success <span class="filter-count" id="success-count">0</span>
+                            </button>
+                            <button class="activity-filter" data-level="error">
+                                Errors <span class="filter-count" id="error-count">0</span>
+                            </button>
                         </div>
                         <div class="activity-actions">
                             <button class="btn btn-ghost btn-xs" id="btn-copy-logs" title="Copy to clipboard">📋 Copy</button>
                             <button class="btn btn-ghost btn-xs" id="btn-save-logs" title="Save as .txt file">💾 Save</button>
                         </div>
                     </div>
+                </div>
+                <div class="activity-summary" id="activity-summary" style="display: none;">
+                    <div class="error-breakdown" id="error-breakdown"></div>
                 </div>
                 <div class="activity-body" id="activity-body">
                     <div class="log-empty">No activity yet. Start a job to see logs.</div>
@@ -44,6 +72,16 @@ const ActivityLog = {
 
         this.bindFilterEvents();
         this.bindExportEvents();
+        this.resetCounts();
+    },
+
+    /**
+     * Reset error/success counts
+     */
+    resetCounts() {
+        this.errorCounts = { total: 0, byType: {} };
+        this.successCount = 0;
+        this.lastLogTimestamp = null;
     },
 
     /**
@@ -69,6 +107,12 @@ const ActivityLog = {
         this.currentJobId = jobId;
         this.logIndex = 0;
         this.clearLogs();
+        this.resetCounts();
+
+        // Initialize progress tracker
+        if (typeof ProgressTracker !== 'undefined') {
+            ProgressTracker.initJob(jobId, 0);
+        }
 
         this.pollInterval = setInterval(() => this.fetchLogs(), this.POLL_RATE);
         this.fetchLogs(); // Immediate first fetch
@@ -150,7 +194,16 @@ const ActivityLog = {
         logs.forEach(log => {
             const entry = this.createLogEntry(log);
             body.appendChild(entry);
+
+            // Track counts and emit events
+            this.trackLogEntry(log);
         });
+
+        // Update filter counts
+        this.updateFilterCounts();
+
+        // Update error breakdown if there are errors
+        this.updateErrorBreakdown();
 
         // Only auto-scroll if user was already at bottom
         if (wasAtBottom) {
@@ -159,11 +212,176 @@ const ActivityLog = {
     },
 
     /**
+     * Track log entry for counts and toast notifications
+     */
+    trackLogEntry(log) {
+        if (log.level === 'success') {
+            this.successCount++;
+
+            // Update progress tracker with success
+            if (typeof ProgressTracker !== 'undefined' && this.currentJobId) {
+                const timeMs = log.data?.time_ms || null;
+                ProgressTracker.urlCompleted(this.currentJobId, true, timeMs);
+            }
+
+        } else if (log.level === 'error') {
+            this.errorCounts.total++;
+
+            // Categorize the error
+            const errorType = this.categorizeError(log);
+            this.errorCounts.byType[errorType] = (this.errorCounts.byType[errorType] || 0) + 1;
+
+            // Update progress tracker with failure
+            if (typeof ProgressTracker !== 'undefined' && this.currentJobId) {
+                const timeMs = log.data?.time_ms || null;
+                ProgressTracker.urlCompleted(this.currentJobId, false, timeMs);
+            }
+
+            // Show toast for errors (but not too frequently)
+            if (typeof Toast !== 'undefined' && this.errorCounts.total <= 5) {
+                const url = log.data?.url || null;
+                const errorMsg = log.message || 'Unknown error';
+                Toast.error(errorMsg, {
+                    url,
+                    duration: 4000,
+                });
+            }
+        } else if (log.level === 'info' && log.message.includes('Starting job')) {
+            // Extract total URLs from job start message
+            const match = log.message.match(/(\d+) URLs/);
+            if (match && typeof ProgressTracker !== 'undefined' && this.currentJobId) {
+                const total = parseInt(match[1], 10);
+                ProgressTracker.initJob(this.currentJobId, total);
+            }
+
+            // Show job started toast
+            if (typeof Toast !== 'undefined') {
+                const total = log.data?.total_urls || 0;
+                Toast.jobEvent('job_started', { total });
+            }
+        } else if (log.level === 'info' && log.message.includes('Job complete')) {
+            // Show job completed toast
+            if (typeof Toast !== 'undefined') {
+                Toast.jobEvent('job_completed', {
+                    success: this.successCount,
+                    failed: this.errorCounts.total,
+                });
+            }
+        } else if (log.level === 'info' && log.message.includes('Fetching:')) {
+            // Track current URL being processed
+            const urlMatch = log.message.match(/Fetching: (.+?)\.{3}$/);
+            if (urlMatch && typeof ProgressTracker !== 'undefined' && this.currentJobId) {
+                ProgressTracker.urlStarted(this.currentJobId, urlMatch[1]);
+            }
+        }
+
+        this.lastLogTimestamp = log.timestamp;
+    },
+
+    /**
+     * Categorize error for grouping
+     */
+    categorizeError(log) {
+        const errorType = log.data?.error_type || '';
+        const message = (log.message || '').toLowerCase();
+
+        // Check for specific error types
+        if (errorType.includes('poison') || message.includes('poison')) return 'poison_pill';
+        if (message.includes('cloudflare')) return 'cloudflare';
+        if (message.includes('captcha')) return 'captcha';
+        if (message.includes('paywall') || message.includes('subscribe')) return 'paywall';
+        if (message.includes('rate limit') || message.includes('429')) return 'rate_limit';
+        if (message.includes('timeout')) return 'timeout';
+        if (message.includes('403')) return '403';
+        if (message.includes('404')) return '404';
+        if (message.includes('500')) return '500';
+        if (message.includes('503')) return '503';
+        if (errorType === 'extraction_failed') return 'extraction_failed';
+        if (errorType === 'exception') return 'exception';
+
+        return 'other';
+    },
+
+    /**
+     * Update filter button counts
+     */
+    updateFilterCounts() {
+        const successCountEl = document.getElementById('success-count');
+        const errorCountEl = document.getElementById('error-count');
+
+        if (successCountEl) {
+            successCountEl.textContent = this.successCount;
+            successCountEl.classList.toggle('has-count', this.successCount > 0);
+        }
+        if (errorCountEl) {
+            errorCountEl.textContent = this.errorCounts.total;
+            errorCountEl.classList.toggle('has-count', this.errorCounts.total > 0);
+            errorCountEl.classList.toggle('has-errors', this.errorCounts.total > 0);
+        }
+    },
+
+    /**
+     * Update error breakdown summary
+     */
+    updateErrorBreakdown() {
+        const summary = document.getElementById('activity-summary');
+        const breakdown = document.getElementById('error-breakdown');
+
+        if (!summary || !breakdown) return;
+
+        if (this.errorCounts.total === 0) {
+            summary.style.display = 'none';
+            return;
+        }
+
+        summary.style.display = 'block';
+
+        const sortedErrors = Object.entries(this.errorCounts.byType)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5); // Top 5 error types
+
+        breakdown.innerHTML = sortedErrors.map(([type, count]) => {
+            const description = this.errorDescriptions[type] || type;
+            const percent = Math.round((count / this.errorCounts.total) * 100);
+            return `
+                <div class="error-type-badge" title="${description}">
+                    <span class="error-type-name">${this.formatErrorType(type)}</span>
+                    <span class="error-type-count">${count}</span>
+                </div>
+            `;
+        }).join('');
+    },
+
+    /**
+     * Format error type for display
+     */
+    formatErrorType(type) {
+        const labels = {
+            'poison_pill': 'Anti-bot',
+            'cloudflare': 'Cloudflare',
+            'captcha': 'CAPTCHA',
+            'paywall': 'Paywall',
+            'rate_limit': 'Rate limit',
+            'timeout': 'Timeout',
+            'extraction_failed': 'No data',
+            'exception': 'Error',
+            'network': 'Network',
+            '403': '403',
+            '404': '404',
+            '429': '429',
+            '500': '500',
+            '503': '503',
+            'other': 'Other',
+        };
+        return labels[type] || type;
+    },
+
+    /**
      * Create a single log entry element
      */
     createLogEntry(log) {
         const entry = document.createElement('div');
-        entry.className = 'log-entry new';
+        entry.className = `log-entry new log-${log.level}`;
 
         // Parse timestamp
         const time = new Date(log.timestamp);
@@ -186,16 +404,108 @@ const ActivityLog = {
         // Highlight numbers with units
         message = message.replace(/(\d+(?:ms|s|%|\/\d+))/g, '<span class="value">$1</span>');
 
+        // Build additional details for expandable view
+        let details = '';
+        if (log.data && Object.keys(log.data).length > 0) {
+            details = this.buildLogDetails(log);
+        }
+
+        // Get level icon
+        const levelIcon = this.getLevelIcon(log.level);
+
         entry.innerHTML = `
             <span class="log-time">${timeStr}</span>
-            <span class="log-level ${log.level}"></span>
-            <span class="log-message">${message}</span>
+            <span class="log-level ${log.level}" title="${log.level}">${levelIcon}</span>
+            <div class="log-content">
+                <span class="log-message">${message}</span>
+                ${details}
+            </div>
         `;
+
+        // Make expandable if has details
+        if (details) {
+            entry.classList.add('expandable');
+            entry.addEventListener('click', () => {
+                entry.classList.toggle('expanded');
+            });
+        }
 
         // Remove 'new' class after animation
         setTimeout(() => entry.classList.remove('new'), 200);
 
         return entry;
+    },
+
+    /**
+     * Get icon for log level
+     */
+    getLevelIcon(level) {
+        const icons = {
+            'success': '✓',
+            'error': '✕',
+            'warning': '⚠',
+            'info': '→',
+            'debug': '·',
+        };
+        return icons[level] || '·';
+    },
+
+    /**
+     * Build expandable details section
+     */
+    buildLogDetails(log) {
+        const data = log.data;
+        if (!data || Object.keys(data).length === 0) return '';
+
+        const items = [];
+
+        // URL
+        if (data.url) {
+            items.push(`<div class="detail-row"><span class="detail-label">URL:</span><span class="detail-value detail-url">${this.escapeHtml(data.url)}</span></div>`);
+        }
+
+        // Method used
+        if (data.method) {
+            items.push(`<div class="detail-row"><span class="detail-label">Method:</span><span class="detail-value">${data.method}</span></div>`);
+        }
+
+        // Processing time
+        if (data.time_ms) {
+            items.push(`<div class="detail-row"><span class="detail-label">Time:</span><span class="detail-value">${data.time_ms}ms</span></div>`);
+        }
+
+        // Error type
+        if (data.error_type) {
+            const description = this.errorDescriptions[data.error_type] || data.error_type;
+            items.push(`<div class="detail-row"><span class="detail-label">Error type:</span><span class="detail-value detail-error">${description}</span></div>`);
+        }
+
+        // Cascade attempts
+        if (data.cascade_attempts && data.cascade_attempts > 1) {
+            items.push(`<div class="detail-row"><span class="detail-label">Cascade attempts:</span><span class="detail-value">${data.cascade_attempts}</span></div>`);
+        }
+
+        // Fields extracted
+        if (data.fields && Object.keys(data.fields).length > 0) {
+            const fieldsList = Object.entries(data.fields)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(', ');
+            items.push(`<div class="detail-row"><span class="detail-label">Fields:</span><span class="detail-value">${this.escapeHtml(fieldsList)}</span></div>`);
+        }
+
+        // Data preview (for successful extractions)
+        if (data.data_preview && Object.keys(data.data_preview).length > 0) {
+            const previewItems = Object.entries(data.data_preview).slice(0, 3);
+            const preview = previewItems.map(([k, v]) => {
+                const val = typeof v === 'string' ? v.substring(0, 100) : JSON.stringify(v).substring(0, 100);
+                return `<div class="preview-item"><strong>${k}:</strong> ${this.escapeHtml(val)}${val.length >= 100 ? '...' : ''}</div>`;
+            }).join('');
+            items.push(`<div class="detail-row detail-preview">${preview}</div>`);
+        }
+
+        if (items.length === 0) return '';
+
+        return `<div class="log-details">${items.join('')}</div>`;
     },
 
     /**
@@ -206,8 +516,15 @@ const ActivityLog = {
         if (body) {
             body.innerHTML = '<div class="log-empty">Waiting for activity...</div>';
         }
-        document.getElementById('log-count').textContent = '0';
+        const logCount = document.getElementById('log-count');
+        if (logCount) logCount.textContent = '0';
         this.logIndex = 0;
+        this.resetCounts();
+        this.updateFilterCounts();
+
+        // Hide error breakdown
+        const summary = document.getElementById('activity-summary');
+        if (summary) summary.style.display = 'none';
     },
 
     /**

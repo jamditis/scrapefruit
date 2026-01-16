@@ -245,10 +245,30 @@ class PlaywrightFetcher:
         """Cleanup on destruction."""
         if self.browser:
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.close())
-                else:
-                    loop.run_until_complete(self.close())
+                # Try to get a running loop first
+                try:
+                    loop = asyncio.get_running_loop()
+                    if not loop.is_closed():
+                        loop.create_task(self.close())
+                    return
+                except RuntimeError:
+                    # No running loop
+                    pass
+
+                # Try to get an existing event loop
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        # Loop is closed, can't clean up async resources
+                        # This is expected during shutdown, just skip
+                        return
+                    if loop.is_running():
+                        loop.create_task(self.close())
+                    else:
+                        loop.run_until_complete(self.close())
+                except RuntimeError:
+                    # No event loop available, skip cleanup
+                    pass
             except Exception:
+                # Suppress all errors during cleanup
                 pass

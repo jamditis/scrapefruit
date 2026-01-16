@@ -3168,3 +3168,578 @@ input[type="checkbox"]:focus-visible {
         font-size: 11px;
     }
 }
+
+/* ============================================
+   Toast Notifications
+   ============================================ */
+.toast-container {
+    position: fixed;
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--spacing-sm);
+    max-width: 420px;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--panel);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 3px solid var(--ice);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 0, 0, 0.2);
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.toast-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-dismissing {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+/* Toast types */
+.toast-success {
+    border-left-color: var(--color-success);
+}
+
+.toast-success .toast-icon {
+    color: var(--color-success);
+    text-shadow: 0 0 10px var(--color-success);
+}
+
+.toast-error {
+    border-left-color: var(--color-error);
+}
+
+.toast-error .toast-icon {
+    color: var(--color-error);
+    text-shadow: 0 0 10px var(--color-error);
+}
+
+.toast-warning {
+    border-left-color: var(--color-warning);
+}
+
+.toast-warning .toast-icon {
+    color: var(--color-warning);
+    text-shadow: 0 0 10px var(--color-warning);
+}
+
+.toast-info {
+    border-left-color: var(--ice);
+}
+
+.toast-info .toast-icon {
+    color: var(--ice);
+    text-shadow: 0 0 10px var(--ice);
+}
+
+/* Toast icon */
+.toast-icon {
+    font-size: 18px;
+    font-weight: bold;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+
+/* Toast content */
+.toast-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.toast-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--chrome);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.toast-message {
+    font-size: 12px;
+    color: var(--chrome);
+    line-height: 1.4;
+}
+
+.toast-url {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+/* Toast progress */
+.toast-progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: var(--spacing-xs);
+}
+
+.toast-progress-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.toast-progress-fill {
+    height: 100%;
+    background: var(--acid);
+    transition: width 0.3s ease;
+}
+
+/* Toast action button */
+.toast-action {
+    background: transparent;
+    border: 1px solid var(--ice);
+    color: var(--ice);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.toast-action:hover {
+    background: var(--ice);
+    color: var(--void);
+}
+
+/* Toast dismiss button */
+.toast-dismiss {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color var(--transition-fast);
+}
+
+.toast-dismiss:hover {
+    color: var(--chrome);
+}
+
+/* Light mode toast overrides */
+[data-theme="light"] .toast {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .toast-message {
+    color: #374151;
+}
+
+[data-theme="light"] .toast-url {
+    color: #6b7280;
+}
+
+/* ============================================
+   Enhanced Progress Indicators
+   ============================================ */
+.job-progress-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: var(--spacing-sm);
+}
+
+.progress-current-url {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: rgba(0, 240, 255, 0.05);
+    border-left: 2px solid var(--ice);
+}
+
+.progress-current-url .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--ice-dim);
+    border-top-color: var(--ice);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.progress-current-url .url-text {
+    font-size: 12px;
+    color: var(--ice);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.progress-eta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: var(--spacing-xs);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.progress-eta .eta-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.progress-eta .eta-value {
+    color: var(--chrome);
+    font-family: var(--font-mono);
+}
+
+.progress-speed {
+    color: var(--acid);
+}
+
+/* Job status indicator with animation */
+.job-status.running {
+    position: relative;
+}
+
+.job-status.running::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background: var(--acid);
+    border-radius: 50%;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+    50% { opacity: 0.5; transform: translateY(-50%) scale(0.8); }
+}
+
+/* Stats card with live indicator */
+.stat-card.live .stat-value {
+    position: relative;
+}
+
+.stat-card.live .stat-value::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--acid);
+    border-radius: 50%;
+    margin-left: var(--spacing-xs);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   Enhanced Activity Log Styles
+   ============================================ */
+
+/* Filter count badges */
+.activity-filter .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9px;
+    margin-left: 4px;
+}
+
+.activity-filter .filter-count.has-count {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.activity-filter .filter-count.has-errors {
+    background: var(--signal-dim);
+    color: var(--signal);
+}
+
+/* Activity summary / error breakdown */
+.activity-summary {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(255, 42, 42, 0.05);
+    border-bottom: 1px solid rgba(255, 42, 42, 0.1);
+}
+
+.error-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.error-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: var(--signal-dim);
+    border: 1px solid rgba(255, 42, 42, 0.3);
+    font-size: 11px;
+}
+
+.error-type-badge .error-type-name {
+    color: var(--signal);
+}
+
+.error-type-badge .error-type-count {
+    color: var(--chrome);
+    font-weight: 600;
+}
+
+/* Enhanced log entry styling */
+.log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background var(--transition-fast);
+}
+
+.log-entry:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.log-entry.expandable {
+    cursor: pointer;
+}
+
+.log-entry.expandable:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* Log level icon styling */
+.log-entry .log-level {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+
+.log-entry .log-level.success {
+    color: var(--color-success);
+    background: var(--acid-dim);
+}
+
+.log-entry .log-level.error {
+    color: var(--color-error);
+    background: var(--signal-dim);
+}
+
+.log-entry .log-level.warning {
+    color: var(--color-warning);
+    background: rgba(255, 180, 84, 0.15);
+}
+
+.log-entry .log-level.info {
+    color: var(--ice);
+    background: var(--ice-dim);
+}
+
+.log-entry .log-level.debug {
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Log content */
+.log-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Log entry type-specific styling */
+.log-entry.log-success {
+    border-left: 2px solid transparent;
+}
+
+.log-entry.log-error {
+    background: rgba(255, 42, 42, 0.03);
+    border-left: 2px solid var(--signal);
+}
+
+.log-entry.log-warning {
+    background: rgba(255, 180, 84, 0.03);
+    border-left: 2px solid var(--color-warning);
+}
+
+/* Expandable log details */
+.log-details {
+    display: none;
+    margin-top: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 2px solid var(--muted);
+    font-size: 11px;
+}
+
+.log-entry.expanded .log-details {
+    display: block;
+}
+
+.log-entry.expandable .log-message::after {
+    content: ' ▸';
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.log-entry.expanded .log-message::after {
+    content: ' ▾';
+}
+
+.detail-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: 4px;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    color: var(--muted);
+    min-width: 80px;
+    flex-shrink: 0;
+}
+
+.detail-value {
+    color: var(--chrome);
+    word-break: break-all;
+}
+
+.detail-url {
+    color: var(--ice);
+    font-family: var(--font-mono);
+    font-size: 10px;
+}
+
+.detail-error {
+    color: var(--signal);
+}
+
+.detail-preview {
+    flex-direction: column;
+    gap: 4px;
+}
+
+.preview-item {
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 1px solid var(--muted);
+}
+
+.preview-item strong {
+    color: var(--acid);
+}
+
+/* Progress stats row */
+.progress-stats-row {
+    display: flex;
+    gap: var(--spacing-lg);
+    padding-top: var(--spacing-xs);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: var(--spacing-xs);
+}
+
+.stat-mini {
+    display: flex;
+    gap: var(--spacing-xs);
+    font-size: 11px;
+}
+
+.stat-mini .stat-label {
+    color: var(--muted);
+}
+
+.stat-mini .stat-value {
+    color: var(--chrome);
+    font-family: var(--font-mono);
+}
+
+/* Current URL elapsed time */
+.progress-current-url .current-elapsed {
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+}
+
+/* Light mode overrides for activity log */
+[data-theme="light"] .activity-summary {
+    background: rgba(220, 38, 38, 0.05);
+    border-bottom-color: rgba(220, 38, 38, 0.1);
+}
+
+[data-theme="light"] .error-type-badge {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.2);
+}
+
+[data-theme="light"] .log-entry.log-error {
+    background: rgba(220, 38, 38, 0.03);
+}
+
+[data-theme="light"] .log-details {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .preview-item {
+    background: rgba(0, 0, 0, 0.02);
+}

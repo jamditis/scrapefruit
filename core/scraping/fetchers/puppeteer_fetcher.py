@@ -232,23 +232,73 @@ class PuppeteerFetcher:
         """
         Synchronous wrapper for fetch_async.
 
-        Creates event loop if needed.
+        Creates event loop if needed. Handles threading issues.
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        import threading
 
-        return loop.run_until_complete(
-            self.fetch_async(
-                url,
-                timeout=timeout,
-                wait_for=wait_for,
-                wait_for_timeout=wait_for_timeout,
-                take_screenshot=take_screenshot,
+        try:
+            # Check if there's already a running loop
+            try:
+                loop = asyncio.get_running_loop()
+                # If there's a running loop, we need to run in a new thread
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        self._run_in_new_loop, url, timeout, wait_for, wait_for_timeout, take_screenshot
+                    )
+                    return future.result(timeout=timeout // 1000 + 30)
+            except RuntimeError:
+                # No running loop
+                pass
+
+            # Try to get existing loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Loop is closed")
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            try:
+                return loop.run_until_complete(
+                    self.fetch_async(
+                        url,
+                        timeout=timeout,
+                        wait_for=wait_for,
+                        wait_for_timeout=wait_for_timeout,
+                        take_screenshot=take_screenshot,
+                    )
+                )
+            finally:
+                # Close the loop if we created it
+                if loop != asyncio.get_event_loop():
+                    loop.close()
+
+        except Exception as e:
+            return PuppeteerResult(
+                success=False,
+                method="puppeteer",
+                error=str(e),
             )
-        )
+
+    def _run_in_new_loop(
+        self,
+        url: str,
+        timeout: int,
+        wait_for: Optional[str],
+        wait_for_timeout: int,
+        take_screenshot: bool,
+    ) -> PuppeteerResult:
+        """Run fetch in a completely new event loop in a separate thread."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                self.fetch_async(url, timeout, wait_for, wait_for_timeout, take_screenshot)
+            )
+        finally:
+            loop.close()
 
     async def close(self):
         """Close the browser."""
@@ -260,10 +310,29 @@ class PuppeteerFetcher:
         """Cleanup on destruction."""
         if hasattr(self, 'browser') and self.browser:
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.close())
-                else:
-                    loop.run_until_complete(self.close())
+                # Try to get a running loop first
+                try:
+                    loop = asyncio.get_running_loop()
+                    if not loop.is_closed():
+                        loop.create_task(self.close())
+                    return
+                except RuntimeError:
+                    # No running loop
+                    pass
+
+                # Try to get an existing event loop
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        # Loop is closed, can't clean up async resources
+                        return
+                    if loop.is_running():
+                        loop.create_task(self.close())
+                    else:
+                        loop.run_until_complete(self.close())
+                except RuntimeError:
+                    # No event loop available, skip cleanup
+                    pass
             except Exception:
+                # Suppress all errors during cleanup
                 pass
