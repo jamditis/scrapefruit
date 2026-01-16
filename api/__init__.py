@@ -1,10 +1,25 @@
 """Flask application factory for Scrapefruit API."""
 
-from flask import Flask
+from flask import Flask, request, Response
 from flask_cors import CORS
+from functools import wraps
 
 import config
 from database.connection import remove_session
+
+
+def check_auth(username, password):
+    """Verify username and password against config."""
+    return username == config.AUTH_USERNAME and password == config.AUTH_PASSWORD
+
+
+def authenticate():
+    """Send 401 response to trigger browser's basic auth prompt."""
+    return Response(
+        "Authentication required. Please provide valid credentials.",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Scrapefruit"'},
+    )
 
 
 def create_app():
@@ -21,6 +36,18 @@ def create_app():
 
     # Enable CORS for all routes
     CORS(app)
+
+    # Basic auth middleware (only when AUTH_ENABLED=true)
+    if config.AUTH_ENABLED:
+        @app.before_request
+        def require_auth():
+            # Skip auth for health check endpoint
+            if request.path == "/api/health":
+                return None
+
+            auth = request.authorization
+            if not auth or not check_auth(auth.username, auth.password):
+                return authenticate()
 
     # Clean up database sessions after each request
     @app.teardown_appcontext

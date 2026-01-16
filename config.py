@@ -80,3 +80,8 @@ WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 900
 WINDOW_MIN_WIDTH = 1000
 WINDOW_MIN_HEIGHT = 700
+
+# Authentication (for web deployment)
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
+AUTH_USERNAME = os.getenv("AUTH_USERNAME", "")
+AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "")
