@@ -87,3 +87,17 @@ WINDOW_MIN_HEIGHT = 700
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "")
+
+# LLM configuration (for AI-driven browser automation and text processing)
+# Ollama is the recommended free/local option
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b")  # Small model for low-memory systems
+# Cloud fallbacks (require API keys)
+# OPENAI_API_KEY - set in .env for OpenAI fallback
+# ANTHROPIC_API_KEY - set in .env for Anthropic fallback
+
+# Video transcription configuration
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")  # tiny, base, small, medium, large-v3
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")  # cpu, cuda, auto
+WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")  # int8, float16, float32
+VIDEO_USE_2X_SPEED = os.getenv("VIDEO_USE_2X_SPEED", "true").lower() == "true"  # Faster transcription

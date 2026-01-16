@@ -2,35 +2,53 @@
 
 Future features and improvements for Scrapefruit.
 
-## Planned features
+## Implemented features
 
-### Video scraping and transcription
+### Video scraping and transcription ✅
 
-**Priority:** Medium
-**Complexity:** High
+**Status:** Implemented in `core/scraping/fetchers/video_fetcher.py`
 
-Add support for YouTube and other video platforms with automatic transcription:
+YouTube and 1000+ video platforms with automatic transcription:
 
-- **yt-dlp integration**: Download video/audio from YouTube, Vimeo, Twitter, and 1000+ sites
-- **Local Whisper transcription**: Use OpenAI Whisper locally for speech-to-text
-- **2x speed processing**: Process audio at 2x speed to reduce transcription time/cost
-- **Timestamp normalization**: Adjust timestamps back to 1x speed for accurate output
-- **Output formats**: SRT, VTT, plain text, JSON with word-level timestamps
+- **yt-dlp integration**: Download video/audio from YouTube, Vimeo, Twitter, TikTok, etc.
+- **Local Whisper transcription**: Uses faster-whisper for efficient speech-to-text
+- **2x speed processing**: Processes audio at 2x speed to halve transcription time
+- **Timestamp normalization**: Automatically adjusts timestamps back to 1x speed
+- **Output formats**: Plain text, SRT, VTT, JSON with word-level timestamps
 
-**Implementation notes:**
+**Usage:**
 ```python
-# Proposed fetcher: VideoFetcher
-# 1. Use yt-dlp to extract audio
-# 2. Speed up audio 2x with ffmpeg
-# 3. Run Whisper transcription
-# 4. Normalize timestamps (divide by 2)
-# 5. Return transcript with metadata
+from core.scraping.fetchers.video_fetcher import VideoFetcher
+
+fetcher = VideoFetcher(whisper_model="base", use_2x_speed=True)
+result = fetcher.fetch("https://youtube.com/watch?v=...")
+print(result.transcript)
+print(result.to_srt())  # SRT subtitles
 ```
 
-**Dependencies:**
-- `yt-dlp` - video/audio extraction
-- `openai-whisper` or `faster-whisper` - transcription
-- `ffmpeg` - audio processing
+**Dependencies:** `yt-dlp`, `faster-whisper`, `ffmpeg` (optional, for 2x speed)
+
+### Local LLM integration ✅
+
+**Status:** Implemented in `core/llm/service.py`
+
+Free local LLM support via Ollama with cloud fallbacks:
+
+- **Ollama support**: Free, local inference with models like Gemma 3:4B, Phi-3 Mini
+- **Cloud fallbacks**: OpenAI and Anthropic as backups when local isn't available
+- **Text processing**: Summarization, entity extraction, classification, Q&A
+- **Browser automation**: Enhanced browser_use_fetcher with Ollama support
+
+**Usage:**
+```python
+from core.llm import get_llm_service
+
+llm = get_llm_service()
+result = llm.summarize("Long text here...")
+entities = llm.extract_entities("Text with names and dates...")
+```
+
+**Setup:** Install Ollama, run `ollama pull gemma3:4b`, then it auto-detects.
 
 ---
 

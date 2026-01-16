@@ -14,7 +14,9 @@ Scrapefruit is a Python desktop application for web scraping with a visual inter
   - Puppeteer (pyppeteer) - alternative browser fingerprint
   - Agent-browser (optional) - AI-optimized browsing with accessibility tree
   - Browser-use (optional) - LLM-controlled browser automation
+  - Video fetcher (optional) - yt-dlp + Whisper transcription
 - **Extraction**: BeautifulSoup, lxml, Tesseract OCR (optional)
+- **LLM**: Local-first via Ollama, cloud fallback (OpenAI, Anthropic)
 - **Database**: SQLite via SQLAlchemy
 - **Export**: Google Sheets (gspread)
 - **Testing**: pytest with 170+ tests
@@ -37,7 +39,8 @@ scrapefruit/
 │   │   │   ├── playwright_fetcher.py   # Playwright with stealth
 │   │   │   ├── puppeteer_fetcher.py    # Pyppeteer alternative
 │   │   │   ├── agent_browser_fetcher.py # Agent-browser CLI wrapper
-│   │   │   └── browser_use_fetcher.py  # Browser-use AI integration
+│   │   │   ├── browser_use_fetcher.py  # Browser-use AI integration
+│   │   │   └── video_fetcher.py        # yt-dlp + Whisper transcription
 │   │   └── extractors/
 │   │       ├── __init__.py         # Extractor exports
 │   │       ├── css_extractor.py    # CSS selector extraction
@@ -46,6 +49,9 @@ scrapefruit/
 │   ├── poison_pills/
 │   │   ├── detector.py     # Paywall/anti-bot detection
 │   │   └── types.py        # Detection pattern types
+│   ├── llm/
+│   │   ├── __init__.py     # LLM module exports
+│   │   └── service.py      # Local-first LLM service (Ollama + cloud fallback)
 │   ├── jobs/
 │   │   ├── orchestrator.py # Job lifecycle management
 │   │   └── worker.py       # Background job worker
@@ -248,6 +254,61 @@ The engine implements a two-phase extraction strategy:
 
 Built-in user agent rotation with modern browser strings for Chrome, Firefox, Safari, and Edge.
 
+### Video transcription
+
+The VideoFetcher extracts and transcribes video/audio from 1000+ platforms:
+
+```python
+from core.scraping.fetchers.video_fetcher import VideoFetcher
+
+fetcher = VideoFetcher(whisper_model="base", use_2x_speed=True)
+result = fetcher.fetch("https://youtube.com/watch?v=...")
+print(result.transcript)      # Plain text
+print(result.to_srt())        # SRT subtitles
+print(result.metadata.title)  # Video metadata
+```
+
+**Dependencies:** `yt-dlp`, `faster-whisper`, `ffmpeg` (optional, for 2x speed)
+
+**Config options:**
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `WHISPER_MODEL` | base | Whisper model size (tiny, base, small, medium, large-v3) |
+| `WHISPER_DEVICE` | cpu | Device for inference (cpu, cuda, auto) |
+| `VIDEO_USE_2X_SPEED` | true | Process audio at 2x speed for faster transcription |
+
+### Local LLM integration
+
+The LLM service provides text processing with local-first inference:
+
+```python
+from core.llm import get_llm_service
+
+llm = get_llm_service()
+result = llm.summarize("Long text...")
+entities = llm.extract_entities("Text with names and dates...")
+answer = llm.answer_question(context, question)
+```
+
+**Provider priority:**
+1. Ollama (local, free) - auto-detected if running
+2. OpenAI (cloud) - requires OPENAI_API_KEY
+3. Anthropic (cloud) - requires ANTHROPIC_API_KEY
+
+**Setup Ollama:**
+```bash
+# Install from ollama.ai
+ollama pull gemma3:4b  # 1.7GB, good for low-memory systems
+# Or for even smaller:
+ollama pull qwen2.5:1.5b  # 1GB
+```
+
+**Config options:**
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `OLLAMA_BASE_URL` | http://localhost:11434 | Ollama server URL |
+| `OLLAMA_MODEL` | gemma3:4b | Default model for local inference |
+
 ### Export options
 
 - SQLite database (local)
@@ -389,3 +450,41 @@ If tests fail with "content_too_short":
 - Ensure test HTML has 500+ characters AND 50+ words
 - Use fixtures from `conftest.py` or the `pad_html()` helper
 - The poison pill detector checks content length before other patterns
+
+### Video fetcher not available
+
+Install dependencies for video transcription:
+
+```bash
+pip install yt-dlp faster-whisper
+
+# Install ffmpeg (optional, for 2x speed optimization)
+# Windows (via chocolatey)
+choco install ffmpeg
+
+# Mac
+brew install ffmpeg
+
+# Linux
+sudo apt install ffmpeg
+```
+
+The engine gracefully skips video fetcher if dependencies are missing.
+
+### Ollama not available
+
+For local LLM inference:
+
+```bash
+# Install Ollama from https://ollama.ai
+
+# Pull a small model (recommended for low-memory systems)
+ollama pull gemma3:4b  # 1.7GB
+# Or even smaller:
+ollama pull qwen2.5:1.5b  # 1GB
+
+# Start Ollama server
+ollama serve
+```
+
+The LLM service auto-detects Ollama and falls back to cloud APIs if unavailable.

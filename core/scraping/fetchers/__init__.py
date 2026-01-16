@@ -1,4 +1,4 @@
-"""Fetcher modules for retrieving web pages."""
+"""Fetcher modules for retrieving web pages and media."""
 
 from core.scraping.fetchers.http_fetcher import HTTPFetcher, FetchResult
 from core.scraping.fetchers.playwright_fetcher import PlaywrightFetcher, PlaywrightResult
@@ -18,6 +18,24 @@ except ImportError:
     PuppeteerResult = None
     HAS_PUPPETEER = False
 
+# Video fetcher - requires yt-dlp and whisper
+try:
+    from core.scraping.fetchers.video_fetcher import (
+        VideoFetcher,
+        VideoFetchResult,
+        VideoMetadata,
+        TranscriptSegment,
+        get_video_fetcher,
+    )
+    HAS_VIDEO_FETCHER = True
+except ImportError:
+    VideoFetcher = None
+    VideoFetchResult = None
+    VideoMetadata = None
+    TranscriptSegment = None
+    get_video_fetcher = None
+    HAS_VIDEO_FETCHER = False
+
 __all__ = [
     # Basic fetchers (free tier)
     "HTTPFetcher",
@@ -33,4 +51,11 @@ __all__ = [
     "BrowserUseFetcher",
     "BrowserUseResult",
     "get_browser_use_fetcher",
+    # Video/media fetcher
+    "VideoFetcher",
+    "VideoFetchResult",
+    "VideoMetadata",
+    "TranscriptSegment",
+    "get_video_fetcher",
+    "HAS_VIDEO_FETCHER",
 ]

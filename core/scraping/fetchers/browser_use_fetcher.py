@@ -77,7 +77,7 @@ class BrowserUseFetcher:
             self._available = False
             return False
 
-        # Check for API key
+        # Check for API key or Ollama configuration
         import os
         has_key = (
             os.getenv("OPENAI_API_KEY") or
@@ -85,8 +85,27 @@ class BrowserUseFetcher:
             os.getenv("BROWSER_USE_API_KEY")
         )
 
-        self._available = bool(has_key)
+        # Also check for Ollama (free, local LLM)
+        has_ollama = (
+            self.llm_provider == "ollama" or
+            os.getenv("OLLAMA_MODEL") or
+            self._check_ollama_running()
+        )
+
+        self._available = bool(has_key or has_ollama)
         return self._available
+
+    def _check_ollama_running(self) -> bool:
+        """Check if Ollama server is running locally."""
+        import os
+        try:
+            import urllib.request
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            req = urllib.request.Request(f"{base_url}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=2) as response:
+                return response.status == 200
+        except Exception:
+            return False
 
     def _get_llm(self):
         """Get or create the LLM instance."""
@@ -108,6 +127,21 @@ class BrowserUseFetcher:
 
         # Fallback to LangChain providers
         try:
+            # Try Ollama first (free, local)
+            if self.llm_provider == "ollama" or os.getenv("OLLAMA_MODEL"):
+                try:
+                    from langchain_ollama import ChatOllama
+                    model = os.getenv("OLLAMA_MODEL", "gemma3:4b")
+                    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+                    self._llm = ChatOllama(
+                        model=model,
+                        base_url=base_url,
+                        temperature=0,
+                    )
+                    return self._llm
+                except ImportError:
+                    pass  # Fall through to cloud providers
+
             if os.getenv("OPENAI_API_KEY"):
                 from langchain_openai import ChatOpenAI
                 self._llm = ChatOpenAI(model="gpt-4o-mini")
