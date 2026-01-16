@@ -7,6 +7,11 @@ Designed for DigitalOcean droplet deployment with minimal resources:
 - Default: Ollama with small models (Gemma 3:4B, Phi-3 Mini, etc.)
 - Fallback: Cloud APIs when local inference isn't available
 
+Features:
+- Automatic provider detection and fallback
+- Circuit breaker protection per provider for resilience
+- Thread-safe singleton access
+
 Usage:
     from core.llm.service import LLMService, get_llm_service
 
@@ -22,6 +27,12 @@ import threading
 import time
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+
+from core.patterns.circuit_breaker import (
+    CircuitBreaker,
+    CircuitOpenError,
+    get_circuit_breaker,
+)
 
 
 @dataclass
@@ -59,11 +70,19 @@ class LLMService:
         "anthropic": "claude-3-haiku-20240307",
     }
 
+    # Circuit breaker settings per provider
+    CIRCUIT_BREAKER_CONFIG = {
+        "ollama": {"failure_threshold": 3, "recovery_timeout": 10.0},  # Local, quick recovery
+        "openai": {"failure_threshold": 5, "recovery_timeout": 30.0},  # Cloud, moderate recovery
+        "anthropic": {"failure_threshold": 5, "recovery_timeout": 30.0},  # Cloud, moderate recovery
+    }
+
     def __init__(
         self,
         provider: Optional[str] = None,
         model: Optional[str] = None,
         ollama_base_url: str = "http://localhost:11434",
+        use_circuit_breaker: bool = True,
     ):
         """
         Initialize the LLM service.
@@ -73,13 +92,25 @@ class LLMService:
                      If None, auto-detects based on availability.
             model: Model name to use. If None, uses provider default.
             ollama_base_url: Base URL for Ollama server.
+            use_circuit_breaker: Whether to use circuit breakers for resilience.
         """
         self.forced_provider = provider
         self.forced_model = model
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", ollama_base_url)
+        self.use_circuit_breaker = use_circuit_breaker
         self._provider: Optional[str] = None
         self._model: Optional[str] = None
         self._client: Any = None
+
+        # Circuit breakers per provider
+        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
+        if use_circuit_breaker:
+            for prov, config in self.CIRCUIT_BREAKER_CONFIG.items():
+                self._circuit_breakers[prov] = get_circuit_breaker(
+                    f"llm_{prov}",
+                    failure_threshold=config["failure_threshold"],
+                    recovery_timeout=config["recovery_timeout"],
+                )
 
     @property
     def provider(self) -> Optional[str]:
@@ -127,6 +158,29 @@ class LLMService:
         self._provider = None
         self._model = None
 
+    def _get_circuit_breaker(self, provider: str) -> Optional[CircuitBreaker]:
+        """Get the circuit breaker for a provider, if enabled."""
+        if not self.use_circuit_breaker:
+            return None
+        return self._circuit_breakers.get(provider)
+
+    def _is_circuit_open(self, provider: str) -> bool:
+        """Check if the circuit breaker for a provider is open."""
+        breaker = self._get_circuit_breaker(provider)
+        return breaker is not None and breaker.is_open
+
+    def _record_success(self, provider: str) -> None:
+        """Record a successful call to the circuit breaker."""
+        breaker = self._get_circuit_breaker(provider)
+        if breaker:
+            breaker.record_success()
+
+    def _record_failure(self, provider: str) -> None:
+        """Record a failed call to the circuit breaker."""
+        breaker = self._get_circuit_breaker(provider)
+        if breaker:
+            breaker.record_failure()
+
     def _check_ollama(self) -> bool:
         """Check if Ollama server is running."""
         try:
@@ -152,6 +206,18 @@ class LLMService:
         """Call Ollama API directly (no LangChain dependency)."""
         import urllib.request
         start_time = time.time()
+        provider = "ollama"
+
+        # Check circuit breaker before calling
+        breaker = self._get_circuit_breaker(provider)
+        if breaker and not breaker.can_execute():
+            return LLMResult(
+                success=False,
+                error="Circuit breaker open: Ollama service temporarily unavailable",
+                model=self._model or "",
+                provider=provider,
+                response_time_ms=0,
+            )
 
         try:
             payload = {
@@ -172,26 +238,41 @@ class LLMService:
 
             with urllib.request.urlopen(req, timeout=120) as response:
                 result = json.loads(response.read().decode())
+                self._record_success(provider)
                 return LLMResult(
                     success=True,
                     content=result.get("response", ""),
                     model=self._model,
-                    provider="ollama",
+                    provider=provider,
                     tokens_used=result.get("eval_count", 0),
                     response_time_ms=int((time.time() - start_time) * 1000),
                 )
         except Exception as e:
+            self._record_failure(provider)
             return LLMResult(
                 success=False,
                 error=str(e),
                 model=self._model,
-                provider="ollama",
+                provider=provider,
                 response_time_ms=int((time.time() - start_time) * 1000),
             )
 
     def _call_openai(self, prompt: str, system: str = "") -> LLMResult:
         """Call OpenAI API."""
         start_time = time.time()
+        provider = "openai"
+
+        # Check circuit breaker before calling
+        breaker = self._get_circuit_breaker(provider)
+        if breaker and not breaker.can_execute():
+            return LLMResult(
+                success=False,
+                error="Circuit breaker open: OpenAI service temporarily unavailable",
+                model=self._model or "",
+                provider=provider,
+                response_time_ms=0,
+            )
+
         try:
             from openai import OpenAI
             client = OpenAI()
@@ -207,26 +288,41 @@ class LLMService:
                 temperature=0,
             )
 
+            self._record_success(provider)
             return LLMResult(
                 success=True,
                 content=response.choices[0].message.content or "",
                 model=self._model,
-                provider="openai",
+                provider=provider,
                 tokens_used=response.usage.total_tokens if response.usage else 0,
                 response_time_ms=int((time.time() - start_time) * 1000),
             )
         except Exception as e:
+            self._record_failure(provider)
             return LLMResult(
                 success=False,
                 error=str(e),
                 model=self._model,
-                provider="openai",
+                provider=provider,
                 response_time_ms=int((time.time() - start_time) * 1000),
             )
 
     def _call_anthropic(self, prompt: str, system: str = "") -> LLMResult:
         """Call Anthropic API."""
         start_time = time.time()
+        provider = "anthropic"
+
+        # Check circuit breaker before calling
+        breaker = self._get_circuit_breaker(provider)
+        if breaker and not breaker.can_execute():
+            return LLMResult(
+                success=False,
+                error="Circuit breaker open: Anthropic service temporarily unavailable",
+                model=self._model or "",
+                provider=provider,
+                response_time_ms=0,
+            )
+
         try:
             from anthropic import Anthropic
             client = Anthropic()
@@ -246,20 +342,22 @@ class LLMService:
                 if hasattr(block, "text"):
                     content += block.text
 
+            self._record_success(provider)
             return LLMResult(
                 success=True,
                 content=content,
                 model=self._model,
-                provider="anthropic",
+                provider=provider,
                 tokens_used=response.usage.input_tokens + response.usage.output_tokens,
                 response_time_ms=int((time.time() - start_time) * 1000),
             )
         except Exception as e:
+            self._record_failure(provider)
             return LLMResult(
                 success=False,
                 error=str(e),
                 model=self._model,
-                provider="anthropic",
+                provider=provider,
                 response_time_ms=int((time.time() - start_time) * 1000),
             )
 
@@ -385,8 +483,8 @@ Answer:"""
         return self.complete(prompt, system)
 
     def get_status(self) -> Dict[str, Any]:
-        """Get current LLM service status."""
-        return {
+        """Get current LLM service status including circuit breaker states."""
+        status = {
             "available": self.is_available(),
             "provider": self.provider,
             "model": self.model,
@@ -394,7 +492,47 @@ Answer:"""
             "ollama_models": self._get_ollama_models() if self._check_ollama() else [],
             "has_openai_key": bool(os.getenv("OPENAI_API_KEY")),
             "has_anthropic_key": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "circuit_breakers": {},
         }
+
+        # Add circuit breaker status for each provider
+        if self.use_circuit_breaker:
+            for prov, breaker in self._circuit_breakers.items():
+                stats = breaker.get_stats()
+                status["circuit_breakers"][prov] = {
+                    "state": stats.state.value,
+                    "failure_count": stats.failure_count,
+                    "total_calls": stats.total_calls,
+                    "total_failures": stats.total_failures,
+                    "total_rejections": stats.total_rejections,
+                }
+
+        return status
+
+    def get_circuit_breaker_stats(self, provider: str) -> Optional[Dict[str, Any]]:
+        """Get circuit breaker stats for a specific provider."""
+        breaker = self._get_circuit_breaker(provider)
+        if not breaker:
+            return None
+        stats = breaker.get_stats()
+        return {
+            "state": stats.state.value,
+            "failure_count": stats.failure_count,
+            "success_count": stats.success_count,
+            "total_calls": stats.total_calls,
+            "total_failures": stats.total_failures,
+            "total_rejections": stats.total_rejections,
+            "last_failure_time": stats.last_failure_time,
+            "last_success_time": stats.last_success_time,
+        }
+
+    def reset_circuit_breaker(self, provider: str) -> bool:
+        """Manually reset a circuit breaker to closed state."""
+        breaker = self._get_circuit_breaker(provider)
+        if breaker:
+            breaker.reset()
+            return True
+        return False
 
 
 # Singleton instance with thread-safe initialization

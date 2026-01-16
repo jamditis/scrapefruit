@@ -1,18 +1,32 @@
 """Jobs API endpoints for creating, managing, and controlling scraping jobs."""
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from uuid import uuid4
 
-from database.repositories.job_repository import JobRepository
-from database.repositories.url_repository import UrlRepository
-from database.repositories.rule_repository import RuleRepository
-from core.jobs.orchestrator import JobOrchestrator
+from core.container import get_container
+from api.middleware.exceptions import NotFoundError, ValidationError
 
 jobs_bp = Blueprint("jobs", __name__)
-job_repo = JobRepository()
-url_repo = UrlRepository()
-rule_repo = RuleRepository()
-orchestrator = JobOrchestrator()
+
+
+def get_job_repo():
+    """Get job repository from DI container."""
+    return get_container().resolve("job_repository")
+
+
+def get_url_repo():
+    """Get URL repository from DI container."""
+    return get_container().resolve("url_repository")
+
+
+def get_rule_repo():
+    """Get rule repository from DI container."""
+    return get_container().resolve("rule_repository")
+
+
+def get_orchestrator():
+    """Get job orchestrator from DI container."""
+    return get_container().resolve("job_orchestrator")
 
 
 @jobs_bp.route("", methods=["GET"])
@@ -23,7 +37,7 @@ def list_jobs():
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
 
-    jobs = job_repo.list_jobs(
+    jobs = get_job_repo().list_jobs(
         status=status,
         include_archived=include_archived,
         limit=limit,
@@ -38,7 +52,7 @@ def create_job():
     data = request.get_json()
 
     job_id = str(uuid4())
-    job = job_repo.create_job(
+    job = get_job_repo().create_job(
         job_id=job_id,
         name=data.get("name", f"Job {job_id[:8]}"),
         mode=data.get("mode", "list"),
@@ -52,11 +66,11 @@ def create_job():
 @jobs_bp.route("/<job_id>", methods=["GET"])
 def get_job(job_id: str):
     """Get job details with rules. URLs are NOT included - use /urls endpoint with pagination."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    rules = rule_repo.list_rules(job_id)
+    rules = get_rule_repo().list_rules(job_id)
 
     # Only return job and rules - URLs are fetched separately via paginated endpoint
     return jsonify({
@@ -68,51 +82,51 @@ def get_job(job_id: str):
 @jobs_bp.route("/<job_id>", methods=["PUT"])
 def update_job(job_id: str):
     """Update job configuration."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     data = request.get_json()
-    job = job_repo.update_job(job_id, **data)
+    job = get_job_repo().update_job(job_id, **data)
     return jsonify({"job": job.to_dict()})
 
 
 @jobs_bp.route("/<job_id>", methods=["DELETE"])
 def delete_job(job_id: str):
     """Delete a job and all associated data."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    job_repo.delete_job(job_id)
+    get_job_repo().delete_job(job_id)
     return jsonify({"message": "Job deleted"})
 
 
 @jobs_bp.route("/<job_id>/archive", methods=["POST"])
 def archive_job(job_id: str):
     """Archive a job (hide from main list but keep data)."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     if job.status == "running":
         return jsonify({"error": "Cannot archive a running job. Stop it first."}), 400
 
-    job = job_repo.archive_job(job_id)
+    job = get_job_repo().archive_job(job_id)
     return jsonify({"job": job.to_dict()})
 
 
 @jobs_bp.route("/<job_id>/unarchive", methods=["POST"])
 def unarchive_job(job_id: str):
     """Restore an archived job to pending status."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     if job.status != "archived":
         return jsonify({"error": "Job is not archived"}), 400
 
-    job = job_repo.unarchive_job(job_id)
+    job = get_job_repo().unarchive_job(job_id)
     return jsonify({"job": job.to_dict()})
 
 
@@ -120,60 +134,60 @@ def unarchive_job(job_id: str):
 @jobs_bp.route("/<job_id>/start", methods=["POST"])
 def start_job(job_id: str):
     """Start a pending or paused job."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     if job.status not in ("pending", "paused"):
         return jsonify({"error": f"Cannot start job with status '{job.status}'"}), 400
 
-    orchestrator.start_job(job_id)
-    job = job_repo.get_job(job_id)
+    get_orchestrator().start_job(job_id)
+    job = get_job_repo().get_job(job_id)
     return jsonify({"job": job.to_dict()})
 
 
 @jobs_bp.route("/<job_id>/pause", methods=["POST"])
 def pause_job(job_id: str):
     """Pause a running job."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     if job.status != "running":
         return jsonify({"error": "Can only pause running jobs"}), 400
 
-    orchestrator.pause_job(job_id)
-    job = job_repo.get_job(job_id)
+    get_orchestrator().pause_job(job_id)
+    job = get_job_repo().get_job(job_id)
     return jsonify({"job": job.to_dict()})
 
 
 @jobs_bp.route("/<job_id>/resume", methods=["POST"])
 def resume_job(job_id: str):
     """Resume a paused job."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     if job.status != "paused":
         return jsonify({"error": "Can only resume paused jobs"}), 400
 
-    orchestrator.resume_job(job_id)
-    job = job_repo.get_job(job_id)
+    get_orchestrator().resume_job(job_id)
+    job = get_job_repo().get_job(job_id)
     return jsonify({"job": job.to_dict()})
 
 
 @jobs_bp.route("/<job_id>/stop", methods=["POST"])
 def stop_job(job_id: str):
     """Stop a running or paused job."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     if job.status not in ("running", "paused"):
         return jsonify({"error": "Can only stop running or paused jobs"}), 400
 
-    orchestrator.stop_job(job_id)
-    job = job_repo.get_job(job_id)
+    get_orchestrator().stop_job(job_id)
+    job = get_job_repo().get_job(job_id)
     return jsonify({"job": job.to_dict()})
 
 
@@ -181,7 +195,7 @@ def stop_job(job_id: str):
 @jobs_bp.route("/<job_id>/urls", methods=["GET"])
 def list_urls(job_id: str):
     """List URLs for a job with pagination."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
@@ -192,8 +206,8 @@ def list_urls(job_id: str):
     # Cap limit to prevent huge requests
     limit = min(limit, 200)
 
-    urls = url_repo.list_urls(job_id, status=status, limit=limit, offset=offset)
-    total = url_repo.count_urls(job_id, status=status)
+    urls = get_url_repo().list_urls(job_id, status=status, limit=limit, offset=offset)
+    total = get_url_repo().count_urls(job_id, status=status)
 
     return jsonify({
         "urls": [u.to_dict() for u in urls],
@@ -207,7 +221,7 @@ def list_urls(job_id: str):
 @jobs_bp.route("/<job_id>/urls", methods=["POST"])
 def add_urls(job_id: str):
     """Add URLs to a job (single, list, or batch)."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
@@ -222,11 +236,11 @@ def add_urls(job_id: str):
     for url in urls_to_add:
         url = url.strip()
         if url:
-            url_obj = url_repo.add_url(job_id, url)
+            url_obj = get_url_repo().add_url(job_id, url)
             added.append(url_obj.to_dict())
 
     # Update job progress total
-    job_repo.update_job(job_id, progress_total=len(url_repo.list_urls(job_id)))
+    get_job_repo().update_job(job_id, progress_total=len(get_url_repo().list_urls(job_id)))
 
     return jsonify({"urls": added, "count": len(added)})
 
@@ -234,7 +248,7 @@ def add_urls(job_id: str):
 @jobs_bp.route("/<job_id>/urls/import-csv", methods=["POST"])
 def import_csv(job_id: str):
     """Import URLs from CSV content."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
@@ -261,13 +275,13 @@ def import_csv(job_id: str):
                 url = row[0].strip()
 
             if url and url.startswith(("http://", "https://")):
-                url_obj = url_repo.add_url(job_id, url)
+                url_obj = get_url_repo().add_url(job_id, url)
                 added.append(url_obj.to_dict())
         except (IndexError, AttributeError):
             continue
 
     # Update job progress total
-    job_repo.update_job(job_id, progress_total=len(url_repo.list_urls(job_id)))
+    get_job_repo().update_job(job_id, progress_total=len(get_url_repo().list_urls(job_id)))
 
     return jsonify({"urls": added, "count": len(added)})
 
@@ -275,8 +289,8 @@ def import_csv(job_id: str):
 @jobs_bp.route("/<job_id>/urls/<url_id>", methods=["DELETE"])
 def delete_url(job_id: str, url_id: str):
     """Remove a URL from a job."""
-    url_repo.delete_url(url_id)
-    job_repo.update_job(job_id, progress_total=len(url_repo.list_urls(job_id)))
+    get_url_repo().delete_url(url_id)
+    get_job_repo().update_job(job_id, progress_total=len(get_url_repo().list_urls(job_id)))
     return jsonify({"message": "URL removed"})
 
 
@@ -284,23 +298,23 @@ def delete_url(job_id: str, url_id: str):
 @jobs_bp.route("/<job_id>/rules", methods=["GET"])
 def list_rules(job_id: str):
     """List extraction rules for a job."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    rules = rule_repo.list_rules(job_id)
+    rules = get_rule_repo().list_rules(job_id)
     return jsonify({"rules": [r.to_dict() for r in rules]})
 
 
 @jobs_bp.route("/<job_id>/rules", methods=["POST"])
 def add_rule(job_id: str):
     """Add an extraction rule to a job."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     data = request.get_json()
-    rule = rule_repo.create_rule(
+    rule = get_rule_repo().create_rule(
         job_id=job_id,
         name=data["name"],
         selector_type=data.get("selector_type", "css"),
@@ -317,7 +331,7 @@ def add_rule(job_id: str):
 def update_rule(job_id: str, rule_id: str):
     """Update an extraction rule."""
     data = request.get_json()
-    rule = rule_repo.update_rule(rule_id, **data)
+    rule = get_rule_repo().update_rule(rule_id, **data)
     if not rule:
         return jsonify({"error": "Rule not found"}), 404
     return jsonify({"rule": rule.to_dict()})
@@ -326,7 +340,7 @@ def update_rule(job_id: str, rule_id: str):
 @jobs_bp.route("/<job_id>/rules/<rule_id>", methods=["DELETE"])
 def delete_rule(job_id: str, rule_id: str):
     """Delete an extraction rule."""
-    rule_repo.delete_rule(rule_id)
+    get_rule_repo().delete_rule(rule_id)
     return jsonify({"message": "Rule deleted"})
 
 
@@ -334,13 +348,11 @@ def delete_rule(job_id: str, rule_id: str):
 @jobs_bp.route("/<job_id>/results", methods=["GET"])
 def list_results(job_id: str):
     """List scraping results for a job."""
-    from database.repositories.result_repository import ResultRepository
-
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    result_repo = ResultRepository()
+    result_repo = get_container().resolve("result_repository")
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
 
@@ -351,7 +363,7 @@ def list_results(job_id: str):
 @jobs_bp.route("/<job_id>/progress", methods=["GET"])
 def get_progress(job_id: str):
     """Get real-time job progress."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
@@ -374,14 +386,14 @@ def get_logs(job_id: str):
         since: Only return logs after this index (for polling)
         level: Filter by log level (info, success, warning, error, debug)
     """
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
     since_index = request.args.get("since", 0, type=int)
     level = request.args.get("level")
 
-    log_data = orchestrator.get_job_logs(job_id, since_index=since_index, level=level)
+    log_data = get_orchestrator().get_job_logs(job_id, since_index=since_index, level=level)
 
     return jsonify({
         "logs": log_data["logs"],
@@ -394,11 +406,11 @@ def get_logs(job_id: str):
 @jobs_bp.route("/<job_id>/logs", methods=["DELETE"])
 def clear_logs(job_id: str):
     """Clear job logs."""
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    orchestrator.clear_job_logs(job_id)
+    get_orchestrator().clear_job_logs(job_id)
     return jsonify({"message": "Logs cleared"})
 
 
@@ -415,7 +427,7 @@ def reset_job(job_id: str):
 
     Can reset jobs in any terminal state: completed, failed, cancelled.
     """
-    job = job_repo.get_job(job_id)
+    job = get_job_repo().get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
@@ -426,7 +438,7 @@ def reset_job(job_id: str):
         return jsonify({"error": "Cannot reset an archived job. Unarchive it first."}), 400
 
     # Reset job status and counters
-    job = job_repo.update_job(
+    job = get_job_repo().update_job(
         job_id,
         status="pending",
         progress_current=0,
@@ -438,9 +450,9 @@ def reset_job(job_id: str):
     )
 
     # Reset all URL statuses to pending
-    url_repo.reset_all_urls(job_id)
+    get_url_repo().reset_all_urls(job_id)
 
     # Clear logs
-    orchestrator.clear_job_logs(job_id)
+    get_orchestrator().clear_job_logs(job_id)
 
     return jsonify({"job": job.to_dict(), "message": "Job reset to pending"})

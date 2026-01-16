@@ -1,29 +1,38 @@
-"""Flask application factory for Scrapefruit API."""
+"""Flask application factory for Scrapefruit API.
 
-from flask import Flask, request, Response
-from flask_cors import CORS
-from functools import wraps
-
-import config
-from database.connection import remove_session
-
-
-def check_auth(username, password):
-    """Verify username and password against config."""
-    return username == config.AUTH_USERNAME and password == config.AUTH_PASSWORD
-
-
-def authenticate():
-    """Send 401 response to trigger browser's basic auth prompt."""
-    return Response(
-        "Authentication required. Please provide valid credentials.",
-        401,
-        {"WWW-Authenticate": 'Basic realm="Scrapefruit"'},
-    )
+Note: This module defers Flask imports to the create_app function to allow
+importing api.middleware.exceptions without requiring Flask to be installed.
+"""
 
 
 def create_app():
     """Create and configure the Flask application."""
+    # Import Flask dependencies inside the function to allow importing
+    # api.middleware.exceptions without requiring Flask
+    from flask import Flask, request, Response
+    from flask_cors import CORS
+
+    import config
+    from database.connection import remove_session
+    from api.middleware import register_error_handlers, register_request_logging
+    from core.container import get_container, configure_default_services
+
+    # Initialize DI container with default services
+    container = get_container()
+    configure_default_services(container)
+
+    def check_auth(username, password):
+        """Verify username and password against config."""
+        return username == config.AUTH_USERNAME and password == config.AUTH_PASSWORD
+
+    def authenticate():
+        """Send 401 response to trigger browser's basic auth prompt."""
+        return Response(
+            "Authentication required. Please provide valid credentials.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Scrapefruit"'},
+        )
+
     app = Flask(
         __name__,
         static_folder="../static",
@@ -37,6 +46,10 @@ def create_app():
 
     # Enable CORS for all routes
     CORS(app)
+
+    # Register error handling middleware
+    register_error_handlers(app)
+    register_request_logging(app)
 
     # Basic auth middleware (only when AUTH_ENABLED=true)
     if config.AUTH_ENABLED:
