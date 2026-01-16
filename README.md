@@ -1,6 +1,6 @@
-# Scrapefruit
-
 ![# Scrapefruit homepage screenshot](https://i.imgur.com/GLMUd7C.png)
+
+# Scrapefruit
 
 [![GitHub stars](https://img.shields.io/github/stars/jamditis/scrapefruit?style=flat-square)](https://github.com/jamditis/scrapefruit/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/jamditis/scrapefruit?style=flat-square)](https://github.com/jamditis/scrapefruit/network/members)
