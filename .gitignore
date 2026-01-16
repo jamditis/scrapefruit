@@ -70,3 +70,15 @@ playwright-browsers/
 tmp/
 temp/
 *.tmp
+
+# Claude Code
+.claude/
+
+# Windows null device artifact
+nul
+
+# Test data (local only)
+tests/*.csv
+tests/*.html
+tests/codeflow-*.json
+tests/codeflow-*.md
