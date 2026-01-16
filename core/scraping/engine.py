@@ -161,8 +161,14 @@ class ScrapingEngine:
         cfg = {**DEFAULT_CASCADE_CONFIG}
         if cascade_config:
             cfg.update(cascade_config)
+            # Handle fallback_on - ensure it's a dict, not a list
             if "fallback_on" in cascade_config:
-                cfg["fallback_on"] = {**DEFAULT_CASCADE_CONFIG["fallback_on"], **cascade_config["fallback_on"]}
+                fallback_cfg = cascade_config["fallback_on"]
+                if isinstance(fallback_cfg, dict):
+                    cfg["fallback_on"] = {**DEFAULT_CASCADE_CONFIG["fallback_on"], **fallback_cfg}
+                else:
+                    # Invalid format - use defaults
+                    cfg["fallback_on"] = DEFAULT_CASCADE_CONFIG["fallback_on"]
 
         # If cascade disabled, use first available method only
         if not cfg.get("enabled", True):
@@ -481,6 +487,14 @@ class ScrapingEngine:
         # Determine success
         success = len(extracted_data) > 0 and len(extraction_errors) == 0
 
+        # Build error message
+        if extraction_errors:
+            error_msg = "; ".join(extraction_errors)
+        elif len(extracted_data) == 0 and rules:
+            error_msg = f"No data extracted (0/{len(rules)} selectors matched)"
+        else:
+            error_msg = None
+
         return ScrapeResult(
             success=success,
             url=url,
@@ -488,7 +502,7 @@ class ScrapingEngine:
             data=extracted_data,
             html=html,
             html_preview=html[:2000],
-            error="; ".join(extraction_errors) if extraction_errors else None,
+            error=error_msg,
             response_time_ms=fetch_result.get("response_time_ms", 0),
             cascade_attempts=fetch_result.get("attempts", []),
         )

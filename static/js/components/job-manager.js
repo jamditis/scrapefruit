@@ -267,9 +267,14 @@ const JobManager = {
             // Initialize activity log
             if (typeof ActivityLog !== 'undefined') {
                 ActivityLog.render('activity-log-container');
-                // Start polling if job is running
+                // Start polling if job is running, or load existing logs for completed jobs
                 if (job.status === 'running') {
                     ActivityLog.startPolling(job.id);
+                } else if (job.status === 'completed' || job.status === 'failed') {
+                    // Load existing logs for completed/failed jobs
+                    ActivityLog.currentJobId = job.id;
+                    ActivityLog.logIndex = 0;
+                    ActivityLog.fetchLogs();
                 }
             }
 

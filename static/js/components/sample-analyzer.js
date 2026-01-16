@@ -196,12 +196,18 @@ const SampleAnalyzer = {
 
         if (!modal || !listEl) return;
 
+        // Build index map for lookups
+        this.suggestionMap = {};
+        this.suggestions.forEach((s, idx) => {
+            this.suggestionMap[idx] = s;
+        });
+
         // Group suggestions by category
         const byCategory = {};
-        this.suggestions.forEach(s => {
+        this.suggestions.forEach((s, idx) => {
             const cat = s.category || 'general';
             if (!byCategory[cat]) byCategory[cat] = [];
-            byCategory[cat].push(s);
+            byCategory[cat].push({ suggestion: s, index: idx });
         });
 
         // Render suggestions grouped by category
@@ -222,7 +228,7 @@ const SampleAnalyzer = {
         for (const [cat, items] of Object.entries(byCategory)) {
             html += `<div class="suggestion-category">
                 <h4>${categoryLabels[cat] || cat}</h4>
-                ${items.map((s, i) => this.renderSuggestionItem(s, `${cat}-${i}`)).join('')}
+                ${items.map(item => this.renderSuggestionItem(item.suggestion, item.index)).join('')}
             </div>`;
         }
 
@@ -235,7 +241,7 @@ const SampleAnalyzer = {
     /**
      * Render a single suggestion item
      */
-    renderSuggestionItem(suggestion, id) {
+    renderSuggestionItem(suggestion, index) {
         const confidenceClass = suggestion.confidence >= 0.9 ? 'high'
             : suggestion.confidence >= 0.75 ? 'medium' : 'low';
 
@@ -244,8 +250,8 @@ const SampleAnalyzer = {
             : '';
 
         return `
-            <label class="suggestion-item" data-suggestion-id="${id}">
-                <input type="checkbox" checked data-suggestion='${JSON.stringify(suggestion)}'>
+            <label class="suggestion-item" data-suggestion-index="${index}">
+                <input type="checkbox" checked data-index="${index}">
                 <div class="suggestion-info">
                     <div class="suggestion-header">
                         <span class="suggestion-name">${this.escapeHtml(suggestion.name)}</span>
@@ -268,7 +274,7 @@ const SampleAnalyzer = {
      */
     getSelectedSuggestions() {
         const checkboxes = document.querySelectorAll('#suggestions-list input[type="checkbox"]:checked');
-        return Array.from(checkboxes).map(cb => JSON.parse(cb.dataset.suggestion));
+        return Array.from(checkboxes).map(cb => this.suggestionMap[cb.dataset.index]);
     },
 
     /**

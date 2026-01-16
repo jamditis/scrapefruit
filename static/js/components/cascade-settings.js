@@ -87,7 +87,14 @@ const CascadeSettings = {
         return {
             enabled,
             order,
-            fallback_on: ['403', '429', 'captcha', 'empty_content', 'js_required'],
+            fallback_on: {
+                status_codes: [403, 429, 503],
+                error_patterns: ['blocked', 'captcha', 'cloudflare', 'challenge'],
+                poison_pills: ['anti_bot', 'rate_limited'],
+                empty_content: true,
+                javascript_required: true,
+                min_content_length: 500,
+            },
         };
     },
 

@@ -26,3 +26,6 @@ google-auth>=2.0
 
 # Utils
 python-dotenv>=1.0
+
+# Production server
+waitress>=3.0
