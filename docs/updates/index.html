@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Updates // Scrapefruit</title>
+    <meta name="description" content="Changelog and updates for Scrapefruit.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Chakra Petch', 'sans-serif'],
+                        mono: ['Share Tech Mono', 'monospace'],
+                    },
+                    colors: {
+                        void: '#050505',
+                        panel: '#0a0a0a',
+                        surface: '#111111',
+                        chrome: '#e5e5e5',
+                        acid: '#ccff00',
+                        acidDim: 'rgba(204, 255, 0, 0.1)',
+                        signal: '#ff2a2a',
+                        signalDim: 'rgba(255, 42, 42, 0.1)',
+                        ice: '#00f0ff',
+                        iceDim: 'rgba(0, 240, 255, 0.1)',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body class="antialiased font-mono min-h-screen">
+
+    <div class="crt-overlay"></div>
+    <div class="fixed inset-0 bg-grid pointer-events-none z-0"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur border-b border-white/10">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="../" class="flex items-center gap-3 group">
+                <div class="w-10 h-10 bg-acid text-black flex items-center justify-center font-bold font-display text-2xl clip-notch group-hover:scale-110 transition-transform">
+                    🍋
+                </div>
+                <span class="font-display font-bold text-xl tracking-wider text-chrome">SCRAPEFRUIT</span>
+            </a>
+
+            <div class="hidden md:flex items-center gap-2">
+                <a href="../" class="nav-link">Home</a>
+                <a href="../manual/" class="nav-link">Manual</a>
+                <a href="../about/" class="nav-link">About</a>
+                <a href="./" class="nav-link active">Updates</a>
+                <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="nav-link flex items-center gap-1">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    GitHub
+                </a>
+            </div>
+
+            <button id="mobile-toggle" class="md:hidden text-chrome p-2">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu">
+        <button id="mobile-close" class="absolute top-6 right-6 text-chrome">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <a href="../" class="nav-link text-2xl">Home</a>
+        <a href="../manual/" class="nav-link text-2xl">Manual</a>
+        <a href="../about/" class="nav-link text-2xl">About</a>
+        <a href="./" class="nav-link text-2xl">Updates</a>
+        <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="nav-link text-2xl">GitHub</a>
+    </div>
+
+    <main class="relative z-10 pt-24">
+
+        <div class="max-w-4xl mx-auto px-6 py-12">
+
+            <!-- Header -->
+            <header class="mb-12 border-b border-white/10 pb-8">
+                <div class="flex items-center gap-2 text-xs text-gray-500 mb-4 font-mono">
+                    <a href="../" class="hover:text-acid">HOME</a>
+                    <span>/</span>
+                    <span class="text-acid">UPDATES</span>
+                </div>
+                <h1 class="font-display text-4xl md:text-5xl text-chrome mb-4">CHANGELOG</h1>
+                <p class="text-gray-400 max-w-2xl">
+                    What's new in Scrapefruit. Features, fixes, and improvements.
+                </p>
+            </header>
+
+            <!-- Legend -->
+            <div class="flex flex-wrap gap-4 mb-12 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="tag feature">Feature</span>
+                    <span class="text-gray-500">New functionality</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="tag fix">Fix</span>
+                    <span class="text-gray-500">Bug fixes</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="tag improvement">Improvement</span>
+                    <span class="text-gray-500">Enhancements</span>
+                </div>
+            </div>
+
+            <!-- Changelog Entries -->
+            <div class="space-y-12">
+
+                <!-- January 2026 -->
+                <section>
+                    <h2 class="font-display text-xl text-acid mb-6 flex items-center gap-3">
+                        <span class="w-2 h-2 bg-acid rounded-full animate-pulse-fast"></span>
+                        January 2026
+                    </h2>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Jan 16</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Local LLM integration via Ollama</h3>
+                        <p class="text-sm text-gray-400 mb-3">
+                            Process scraped content with local LLMs. Summarize articles, extract entities (people, organizations, dates), and classify content—all without API costs.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-1">
+                            <li>• Auto-detects Ollama running locally</li>
+                            <li>• Falls back to OpenAI/Anthropic if API keys are set</li>
+                            <li>• Works with small models like qwen2.5:0.5b (400MB)</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Jan 16</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Video transcription via yt-dlp + Whisper</h3>
+                        <p class="text-sm text-gray-400 mb-3">
+                            Extract and transcribe videos from YouTube, Twitter/X, TikTok, and 1000+ platforms. Get plain text transcripts, SRT subtitles, or word-level timestamps.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-1">
+                            <li>• 2x speed processing option halves transcription time</li>
+                            <li>• Multiple Whisper model sizes (tiny → large)</li>
+                            <li>• Automatic timestamp normalization</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-entry improvement">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag improvement">Improvement</span>
+                            <span class="text-xs text-gray-500">Jan 15</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Toast notifications and live ETA tracking</h3>
+                        <p class="text-sm text-gray-400">
+                            Real-time toast notifications for job events. Live ETA tracking shows estimated time remaining based on average URL processing time.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Jan 14</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Retry failed URLs and job reset</h3>
+                        <p class="text-sm text-gray-400">
+                            New "Retry Failed" button to re-attempt only the URLs that failed. "Reset Job" clears all results and starts fresh without recreating the job.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- December 2025 -->
+                <section>
+                    <h2 class="font-display text-xl text-gray-500 mb-6">December 2025</h2>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Dec 20</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">HTML auto-analyzer for extraction rules</h3>
+                        <p class="text-sm text-gray-400">
+                            Automatically detect extraction rules from sample HTML. Works best on modern sites with semantic markup and Open Graph tags.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry improvement">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag improvement">Improvement</span>
+                            <span class="text-xs text-gray-500">Dec 15</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Activity log export</h3>
+                        <p class="text-sm text-gray-400">
+                            Export the activity log as JSON for debugging and record-keeping. Includes all events with timestamps.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Dec 10</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Fetch samples feature</h3>
+                        <p class="text-sm text-gray-400">
+                            Test your extraction rules on sample URLs before running a full job. See what data you'll get without committing to a full scrape.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry fix">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag fix">Fix</span>
+                            <span class="text-xs text-gray-500">Dec 5</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Playwright stealth mode improvements</h3>
+                        <p class="text-sm text-gray-400">
+                            Better handling of Cloudflare challenges. Improved user agent rotation and fingerprint randomization.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- November 2025 -->
+                <section>
+                    <h2 class="font-display text-xl text-gray-500 mb-6">November 2025</h2>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Nov 25</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Cascade scraping engine</h3>
+                        <p class="text-sm text-gray-400 mb-3">
+                            The core cascade system: automatically escalate through scraping methods when one fails. HTTP → Playwright → Puppeteer → Agent-browser → Browser-use.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-1">
+                            <li>• Detects blocked status codes (403, 429, 503)</li>
+                            <li>• Recognizes anti-bot patterns (Cloudflare, CAPTCHA)</li>
+                            <li>• Per-job cascade configuration</li>
+                        </ul>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Nov 20</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Poison pill detection</h3>
+                        <p class="text-sm text-gray-400">
+                            Automatic detection of paywalls, rate limiting, anti-bot walls, dead links, and login requirements. Never waste time scraping garbage content.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Nov 15</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Vision/OCR extraction fallback</h3>
+                        <p class="text-sm text-gray-400">
+                            When DOM extraction fails, automatically capture screenshots and use Tesseract OCR to extract text. Useful for image-heavy or anti-scraping sites.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Nov 10</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Google Sheets export</h3>
+                        <p class="text-sm text-gray-400">
+                            Export scraping results directly to Google Sheets for collaboration and analysis. Requires service account credentials.
+                        </p>
+                    </div>
+
+                    <div class="changelog-entry feature">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="tag feature">Feature</span>
+                            <span class="text-xs text-gray-500">Nov 1</span>
+                        </div>
+                        <h3 class="font-display text-lg text-chrome mb-2">Initial release</h3>
+                        <p class="text-sm text-gray-400">
+                            First public release of Scrapefruit. Visual interface, basic HTTP and Playwright scraping, CSS/XPath extraction, SQLite storage.
+                        </p>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Subscribe CTA -->
+            <div class="mt-16 bg-panel border border-white/10 p-8 text-center">
+                <h3 class="font-display text-xl text-chrome mb-3">Stay updated</h3>
+                <p class="text-sm text-gray-400 mb-6">
+                    Watch the repository on GitHub to get notified of new releases.
+                </p>
+                <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="btn btn-outline">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    Watch on GitHub
+                </a>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <footer class="py-12 px-6 border-t border-white/10 mt-16">
+            <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-acid text-black flex items-center justify-center font-bold text-lg clip-notch">🍋</div>
+                    <span class="font-display text-chrome">SCRAPEFRUIT</span>
+                </div>
+
+                <div class="flex items-center gap-6 text-sm text-gray-500">
+                    <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="hover:text-chrome transition-colors">GitHub</a>
+                    <a href="../manual/" class="hover:text-chrome transition-colors">Manual</a>
+                    <a href="../about/" class="hover:text-chrome transition-colors">About</a>
+                </div>
+
+                <div class="text-xs text-gray-600 font-mono">
+                    STATUS: <span class="text-acid">OPERATIONAL</span>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        // Mobile menu
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileClose = document.getElementById('mobile-close');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileToggle?.addEventListener('click', () => mobileMenu.classList.add('active'));
+        mobileClose?.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        mobileMenu?.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        });
+    </script>
+</body>
+</html>

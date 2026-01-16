@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About // Scrapefruit</title>
+    <meta name="description" content="About Scrapefruit and its creator.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Chakra Petch', 'sans-serif'],
+                        mono: ['Share Tech Mono', 'monospace'],
+                    },
+                    colors: {
+                        void: '#050505',
+                        panel: '#0a0a0a',
+                        surface: '#111111',
+                        chrome: '#e5e5e5',
+                        acid: '#ccff00',
+                        acidDim: 'rgba(204, 255, 0, 0.1)',
+                        signal: '#ff2a2a',
+                        signalDim: 'rgba(255, 42, 42, 0.1)',
+                        ice: '#00f0ff',
+                        iceDim: 'rgba(0, 240, 255, 0.1)',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body class="antialiased font-mono min-h-screen">
+
+    <div class="crt-overlay"></div>
+    <div class="fixed inset-0 bg-grid pointer-events-none z-0"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur border-b border-white/10">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="../" class="flex items-center gap-3 group">
+                <div class="w-10 h-10 bg-acid text-black flex items-center justify-center font-bold font-display text-2xl clip-notch group-hover:scale-110 transition-transform">
+                    🍋
+                </div>
+                <span class="font-display font-bold text-xl tracking-wider text-chrome">SCRAPEFRUIT</span>
+            </a>
+
+            <div class="hidden md:flex items-center gap-2">
+                <a href="../" class="nav-link">Home</a>
+                <a href="../manual/" class="nav-link">Manual</a>
+                <a href="./" class="nav-link active">About</a>
+                <a href="../updates/" class="nav-link">Updates</a>
+                <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="nav-link flex items-center gap-1">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    GitHub
+                </a>
+            </div>
+
+            <button id="mobile-toggle" class="md:hidden text-chrome p-2">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu">
+        <button id="mobile-close" class="absolute top-6 right-6 text-chrome">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <a href="../" class="nav-link text-2xl">Home</a>
+        <a href="../manual/" class="nav-link text-2xl">Manual</a>
+        <a href="./" class="nav-link text-2xl">About</a>
+        <a href="../updates/" class="nav-link text-2xl">Updates</a>
+        <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="nav-link text-2xl">GitHub</a>
+    </div>
+
+    <main class="relative z-10 pt-24">
+
+        <div class="max-w-4xl mx-auto px-6 py-12">
+
+            <!-- Header -->
+            <header class="mb-12 border-b border-white/10 pb-8">
+                <div class="flex items-center gap-2 text-xs text-gray-500 mb-4 font-mono">
+                    <a href="../" class="hover:text-acid">HOME</a>
+                    <span>/</span>
+                    <span class="text-acid">ABOUT</span>
+                </div>
+                <h1 class="font-display text-4xl md:text-5xl text-chrome mb-4">ABOUT</h1>
+                <p class="text-gray-400 max-w-2xl">
+                    The tool and the human behind it.
+                </p>
+            </header>
+
+            <!-- About the Tool -->
+            <section class="mb-16">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 bg-acid text-black flex items-center justify-center font-bold font-display text-2xl clip-notch">
+                        🍋
+                    </div>
+                    <h2 class="font-display text-2xl text-chrome">The tool</h2>
+                </div>
+
+                <div class="bg-panel border border-white/10 p-8">
+                    <p class="text-gray-400 mb-6 leading-relaxed">
+                        <span class="text-acid font-display">Scrapefruit</span> is a web scraping application built for researchers, journalists, and developers who need to collect data from the web without fighting anti-bot systems all day.
+                    </p>
+
+                    <p class="text-gray-400 mb-6 leading-relaxed">
+                        The core idea is the <span class="text-ice">cascade system</span>: start with the fastest, simplest method (HTTP requests) and automatically escalate through increasingly powerful tools (Playwright, Puppeteer, AI-controlled browsers) when you hit blocks. No manual intervention required.
+                    </p>
+
+                    <p class="text-gray-400 mb-6 leading-relaxed">
+                        Recent additions include <span class="text-ice">local LLM integration</span> via Ollama for processing scraped content without API costs, and <span class="text-ice">video transcription</span> via yt-dlp and Whisper for extracting text from YouTube, Twitter/X, and 1000+ other platforms.
+                    </p>
+
+                    <div class="border-t border-white/10 pt-6 mt-6">
+                        <h3 class="font-display text-lg text-chrome mb-4">Tech stack</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <div class="text-acid mb-1">Backend</div>
+                                <div class="text-gray-400">Flask + SocketIO</div>
+                            </div>
+                            <div>
+                                <div class="text-acid mb-1">GUI</div>
+                                <div class="text-gray-400">pywebview</div>
+                            </div>
+                            <div>
+                                <div class="text-acid mb-1">Scraping</div>
+                                <div class="text-gray-400">Playwright, Puppeteer</div>
+                            </div>
+                            <div>
+                                <div class="text-acid mb-1">Database</div>
+                                <div class="text-gray-400">SQLite + SQLAlchemy</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About the Creator -->
+            <section class="mb-16">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 bg-ice/20 border border-ice flex items-center justify-center text-ice font-bold font-display clip-notch">
+                        J
+                    </div>
+                    <h2 class="font-display text-2xl text-chrome">The creator</h2>
+                </div>
+
+                <div class="bg-panel border border-white/10 p-8">
+                    <div class="flex flex-col md:flex-row gap-8">
+                        <div class="flex-1">
+                            <h3 class="font-display text-xl text-acid mb-4">James Amditis</h3>
+                            <p class="text-gray-400 mb-4 leading-relaxed">
+                                I'm a journalist and developer based in Philadelphia. I build tools that help people collect and make sense of information.
+                            </p>
+                            <p class="text-gray-400 mb-6 leading-relaxed">
+                                Scrapefruit grew out of my own needs doing research and reporting. Existing tools were either too simple (couldn't handle modern anti-bot systems) or too complex (required writing custom code for every site). I wanted something in between.
+                            </p>
+
+                            <div class="flex flex-wrap gap-3">
+                                <a href="https://amditis.com" target="_blank" class="btn btn-ghost text-sm">
+                                    <i data-lucide="globe" class="w-4 h-4"></i>
+                                    amditis.com
+                                </a>
+                                <a href="https://github.com/jamditis" target="_blank" class="btn btn-ghost text-sm">
+                                    <i data-lucide="github" class="w-4 h-4"></i>
+                                    GitHub
+                                </a>
+                                <a href="https://twitter.com/amditis" target="_blank" class="btn btn-ghost text-sm">
+                                    <i data-lucide="twitter" class="w-4 h-4"></i>
+                                    @amditis
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- License & Contributing -->
+            <section>
+                <div class="flex items-center gap-3 mb-6">
+                    <i data-lucide="file-text" class="w-6 h-6 text-chrome"></i>
+                    <h2 class="font-display text-2xl text-chrome">License & contributing</h2>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-panel border border-white/10 p-6">
+                        <h3 class="font-display text-lg text-acid mb-3">License</h3>
+                        <p class="text-sm text-gray-400 mb-4">
+                            Scrapefruit is released under the <span class="text-chrome">PolyForm Noncommercial License</span>. You can use it freely for non-commercial purposes.
+                        </p>
+                        <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" class="text-sm text-acid hover:underline">
+                            Read the full license →
+                        </a>
+                    </div>
+
+                    <div class="bg-panel border border-white/10 p-6">
+                        <h3 class="font-display text-lg text-acid mb-3">Contributing</h3>
+                        <p class="text-sm text-gray-400 mb-4">
+                            Contributions are welcome! Feel free to open issues for bugs or feature requests, or submit pull requests.
+                        </p>
+                        <a href="https://github.com/jamditis/scrapefruit/issues" target="_blank" class="text-sm text-acid hover:underline">
+                            Open an issue →
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Footer -->
+        <footer class="py-12 px-6 border-t border-white/10 mt-16">
+            <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-acid text-black flex items-center justify-center font-bold text-lg clip-notch">🍋</div>
+                    <span class="font-display text-chrome">SCRAPEFRUIT</span>
+                </div>
+
+                <div class="flex items-center gap-6 text-sm text-gray-500">
+                    <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="hover:text-chrome transition-colors">GitHub</a>
+                    <a href="../updates/" class="hover:text-chrome transition-colors">Changelog</a>
+                    <a href="../manual/" class="hover:text-chrome transition-colors">Manual</a>
+                </div>
+
+                <div class="text-xs text-gray-600 font-mono">
+                    STATUS: <span class="text-acid">OPERATIONAL</span>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        // Mobile menu
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileClose = document.getElementById('mobile-close');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileToggle?.addEventListener('click', () => mobileMenu.classList.add('active'));
+        mobileClose?.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        mobileMenu?.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        });
+    </script>
+</body>
+</html>

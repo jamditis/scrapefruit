@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual // Scrapefruit</title>
+    <meta name="description" content="User documentation for Scrapefruit web scraping application.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Chakra Petch', 'sans-serif'],
+                        mono: ['Share Tech Mono', 'monospace'],
+                    },
+                    colors: {
+                        void: '#050505',
+                        panel: '#0a0a0a',
+                        surface: '#111111',
+                        chrome: '#e5e5e5',
+                        acid: '#ccff00',
+                        acidDim: 'rgba(204, 255, 0, 0.1)',
+                        signal: '#ff2a2a',
+                        signalDim: 'rgba(255, 42, 42, 0.1)',
+                        ice: '#00f0ff',
+                        iceDim: 'rgba(0, 240, 255, 0.1)',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body class="antialiased font-mono min-h-screen">
+
+    <div class="crt-overlay"></div>
+    <div class="fixed inset-0 bg-grid pointer-events-none z-0"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur border-b border-white/10">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="../" class="flex items-center gap-3 group">
+                <div class="w-10 h-10 bg-acid text-black flex items-center justify-center font-bold font-display text-2xl clip-notch group-hover:scale-110 transition-transform">
+                    🍋
+                </div>
+                <span class="font-display font-bold text-xl tracking-wider text-chrome">SCRAPEFRUIT</span>
+            </a>
+
+            <div class="hidden md:flex items-center gap-2">
+                <a href="../" class="nav-link">Home</a>
+                <a href="./" class="nav-link active">Manual</a>
+                <a href="../about/" class="nav-link">About</a>
+                <a href="../updates/" class="nav-link">Updates</a>
+                <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="nav-link flex items-center gap-1">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    GitHub
+                </a>
+            </div>
+
+            <button id="mobile-toggle" class="md:hidden text-chrome p-2">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu">
+        <button id="mobile-close" class="absolute top-6 right-6 text-chrome">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <a href="../" class="nav-link text-2xl">Home</a>
+        <a href="./" class="nav-link text-2xl">Manual</a>
+        <a href="../about/" class="nav-link text-2xl">About</a>
+        <a href="../updates/" class="nav-link text-2xl">Updates</a>
+        <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="nav-link text-2xl">GitHub</a>
+    </div>
+
+    <main class="relative z-10 pt-24">
+
+        <div class="max-w-6xl mx-auto px-6 py-12">
+
+            <!-- Header -->
+            <header class="mb-12 border-b border-white/10 pb-8">
+                <div class="flex items-center gap-2 text-xs text-gray-500 mb-4 font-mono">
+                    <a href="../" class="hover:text-acid">HOME</a>
+                    <span>/</span>
+                    <span class="text-acid">MANUAL</span>
+                </div>
+                <h1 class="font-display text-4xl md:text-5xl text-chrome mb-4">USER_MANUAL</h1>
+                <p class="text-gray-400 max-w-2xl">
+                    Complete documentation for using Scrapefruit. From basic setup to advanced cascade configuration.
+                </p>
+            </header>
+
+            <div class="grid md:grid-cols-[240px_1fr] gap-12">
+
+                <!-- Table of Contents (Desktop) -->
+                <aside class="hidden md:block">
+                    <div class="sticky top-28">
+                        <h3 class="text-xs font-bold text-acid mb-4 uppercase tracking-widest">Contents</h3>
+                        <nav class="space-y-1 text-sm text-gray-500">
+                            <a href="#installation" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Installation</a>
+                            <a href="#configuration" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Configuration</a>
+                            <a href="#basic-usage" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Basic usage</a>
+                            <a href="#cascade" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Cascade scraping</a>
+                            <a href="#extraction" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Data extraction</a>
+                            <a href="#llm" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">LLM integration</a>
+                            <a href="#video" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Video transcription</a>
+                            <a href="#export" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Export options</a>
+                            <a href="#troubleshooting" class="block py-1 hover:text-chrome hover:pl-2 transition-all duration-200 border-l border-transparent hover:border-acid">Troubleshooting</a>
+                        </nav>
+                    </div>
+                </aside>
+
+                <!-- Main Content -->
+                <div class="space-y-16">
+
+                    <!-- Installation -->
+                    <section id="installation" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-acid/20 border border-acid flex items-center justify-center text-acid font-bold">01</div>
+                            <h2 class="font-display text-2xl text-chrome">Installation</h2>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="bg-panel border border-white/10 p-6">
+                                <h3 class="font-display text-lg text-acid mb-4">Requirements</h3>
+                                <ul class="text-sm text-gray-400 space-y-2">
+                                    <li class="flex items-center gap-2"><span class="text-acid">></span> Python 3.11 or higher</li>
+                                    <li class="flex items-center gap-2"><span class="text-acid">></span> Chromium browser (installed via Playwright)</li>
+                                    <li class="flex items-center gap-2"><span class="text-acid">></span> 2GB RAM minimum (4GB recommended for LLM features)</li>
+                                </ul>
+                            </div>
+
+                            <div class="code-block">
+                                <div class="bg-surface border-b border-white/10 px-4 py-2">
+                                    <span class="text-xs text-gray-500">terminal</span>
+                                </div>
+                                <pre class="p-4 text-sm text-gray-300"><code><span class="text-gray-500"># Clone the repository</span>
+git clone https://github.com/jamditis/scrapefruit.git
+cd scrapefruit
+
+<span class="text-gray-500"># Create and activate virtual environment</span>
+python -m venv venv
+<span class="text-acid">source venv/bin/activate</span>  <span class="text-gray-500"># Linux/Mac</span>
+<span class="text-ice">venv\Scripts\activate</span>     <span class="text-gray-500"># Windows</span>
+
+<span class="text-gray-500"># Install dependencies</span>
+pip install -r requirements.txt
+
+<span class="text-gray-500"># Install browser binaries</span>
+playwright install chromium</code></pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Configuration -->
+                    <section id="configuration" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-acid/20 border border-acid flex items-center justify-center text-acid font-bold">02</div>
+                            <h2 class="font-display text-2xl text-chrome">Configuration</h2>
+                        </div>
+
+                        <p class="text-gray-400 mb-6">
+                            Copy the example environment file and customize it for your setup:
+                        </p>
+
+                        <div class="code-block mb-6">
+                            <div class="bg-surface border-b border-white/10 px-4 py-2">
+                                <span class="text-xs text-gray-500">terminal</span>
+                            </div>
+                            <pre class="p-4 text-sm text-gray-300"><code>cp .env.example .env</code></pre>
+                        </div>
+
+                        <div class="bg-panel border border-white/10 overflow-hidden">
+                            <div class="bg-surface px-4 py-2 border-b border-white/10">
+                                <span class="text-xs text-gray-500 font-mono">.env</span>
+                            </div>
+                            <div class="p-4 text-sm space-y-4">
+                                <div>
+                                    <div class="text-acid mb-1"># Flask configuration</div>
+                                    <div class="text-gray-400">FLASK_DEBUG=<span class="text-chrome">true</span></div>
+                                    <div class="text-gray-400">SECRET_KEY=<span class="text-chrome">your-secret-key</span></div>
+                                </div>
+                                <div>
+                                    <div class="text-acid mb-1"># LLM (optional)</div>
+                                    <div class="text-gray-400">OLLAMA_MODEL=<span class="text-chrome">qwen2.5:0.5b</span></div>
+                                </div>
+                                <div>
+                                    <div class="text-acid mb-1"># Video transcription (optional)</div>
+                                    <div class="text-gray-400">WHISPER_MODEL=<span class="text-chrome">tiny</span></div>
+                                    <div class="text-gray-400">VIDEO_USE_2X_SPEED=<span class="text-chrome">true</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Basic Usage -->
+                    <section id="basic-usage" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-acid/20 border border-acid flex items-center justify-center text-acid font-bold">03</div>
+                            <h2 class="font-display text-2xl text-chrome">Basic usage</h2>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="code-block">
+                                <div class="bg-surface border-b border-white/10 px-4 py-2">
+                                    <span class="text-xs text-gray-500">terminal</span>
+                                </div>
+                                <pre class="p-4 text-sm text-gray-300"><code><span class="text-gray-500"># Start the application</span>
+python main.py
+
+<span class="text-gray-500"># Access the web interface</span>
+<span class="text-acid">http://127.0.0.1:5150</span></code></pre>
+                            </div>
+
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div class="bg-panel border border-white/10 p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <i data-lucide="plus-circle" class="w-5 h-5 text-acid"></i>
+                                        <span class="font-display text-chrome">Create a job</span>
+                                    </div>
+                                    <p class="text-sm text-gray-400">
+                                        Click "New Job" and enter the URLs you want to scrape. Add extraction rules using CSS selectors or XPath.
+                                    </p>
+                                </div>
+
+                                <div class="bg-panel border border-white/10 p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <i data-lucide="play" class="w-5 h-5 text-acid"></i>
+                                        <span class="font-display text-chrome">Run the job</span>
+                                    </div>
+                                    <p class="text-sm text-gray-400">
+                                        Hit "Start" to begin scraping. Watch real-time progress via the activity log. Results appear as they complete.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Cascade Scraping -->
+                    <section id="cascade" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-ice/20 border border-ice flex items-center justify-center text-ice font-bold">04</div>
+                            <h2 class="font-display text-2xl text-chrome">Cascade scraping</h2>
+                        </div>
+
+                        <p class="text-gray-400 mb-6">
+                            The cascade system automatically escalates through scraping methods when one fails. This handles blocks, anti-bot measures, and JavaScript-heavy sites without manual intervention.
+                        </p>
+
+                        <div class="bg-panel border border-white/10 p-6 mb-6">
+                            <h3 class="font-display text-lg text-ice mb-4">Default cascade order</h3>
+                            <div class="flex flex-wrap items-center gap-2 text-sm">
+                                <span class="px-3 py-1 bg-acid/20 border border-acid text-acid">HTTP</span>
+                                <span class="text-gray-500">→</span>
+                                <span class="px-3 py-1 bg-white/5 border border-white/20 text-chrome">Playwright</span>
+                                <span class="text-gray-500">→</span>
+                                <span class="px-3 py-1 bg-white/5 border border-white/20 text-chrome">Puppeteer</span>
+                                <span class="text-gray-500">→</span>
+                                <span class="px-3 py-1 bg-white/5 border border-white/20 text-chrome">Agent-browser</span>
+                                <span class="text-gray-500">→</span>
+                                <span class="px-3 py-1 bg-white/5 border border-white/20 text-chrome">Browser-use</span>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item" onclick="toggleAccordion(this)">
+                            <div class="accordion-header">
+                                <span class="font-display text-chrome">When does fallback trigger?</span>
+                                <i data-lucide="chevron-down" class="accordion-icon w-5 h-5 text-gray-500"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <div class="p-6 border-t border-white/10 text-sm text-gray-400 space-y-2">
+                                    <p><span class="text-signal">></span> HTTP status codes: 403, 429, 503</p>
+                                    <p><span class="text-signal">></span> Anti-bot patterns: "cloudflare", "captcha", "challenge"</p>
+                                    <p><span class="text-signal">></span> Content too short: less than 500 characters</p>
+                                    <p><span class="text-signal">></span> JavaScript markers: empty body, SPA indicators</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item mt-2" onclick="toggleAccordion(this)">
+                            <div class="accordion-header">
+                                <span class="font-display text-chrome">How to customize cascade per job?</span>
+                                <i data-lucide="chevron-down" class="accordion-icon w-5 h-5 text-gray-500"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <div class="p-6 border-t border-white/10 text-sm text-gray-400">
+                                    <p>In the job settings panel, you can:</p>
+                                    <ul class="mt-2 space-y-1 ml-4">
+                                        <li>• Enable or disable cascade entirely</li>
+                                        <li>• Select which methods to include</li>
+                                        <li>• Reorder methods via drag-and-drop</li>
+                                        <li>• Configure custom fallback triggers</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Data Extraction -->
+                    <section id="extraction" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-ice/20 border border-ice flex items-center justify-center text-ice font-bold">05</div>
+                            <h2 class="font-display text-2xl text-chrome">Data extraction</h2>
+                        </div>
+
+                        <p class="text-gray-400 mb-6">
+                            Define extraction rules to pull specific data from pages. Supports CSS selectors, XPath, and OCR fallback.
+                        </p>
+
+                        <div class="grid md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-panel border border-white/10 p-4">
+                                <h3 class="font-display text-acid mb-2">CSS selectors</h3>
+                                <p class="text-sm text-gray-400 mb-3">Standard CSS selector syntax</p>
+                                <code class="text-xs text-chrome bg-surface px-2 py-1">article h1.title</code>
+                            </div>
+
+                            <div class="bg-panel border border-white/10 p-4">
+                                <h3 class="font-display text-acid mb-2">XPath</h3>
+                                <p class="text-sm text-gray-400 mb-3">Full XPath expression support</p>
+                                <code class="text-xs text-chrome bg-surface px-2 py-1">//div[@class='content']</code>
+                            </div>
+
+                            <div class="bg-panel border border-white/10 p-4">
+                                <h3 class="font-display text-acid mb-2">Vision/OCR</h3>
+                                <p class="text-sm text-gray-400 mb-3">Screenshot + Tesseract fallback</p>
+                                <code class="text-xs text-chrome bg-surface px-2 py-1">auto-enabled</code>
+                            </div>
+                        </div>
+
+                        <div class="bg-surface border border-white/10 p-4 text-sm">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="lightbulb" class="w-4 h-4 text-acid"></i>
+                                <span class="text-acid font-display">Tip: Auto-extract from HTML</span>
+                            </div>
+                            <p class="text-gray-400">
+                                Use the "Analyze HTML" feature to automatically detect extraction rules from a sample page. Works best on modern sites with semantic HTML and Open Graph tags.
+                            </p>
+                        </div>
+                    </section>
+
+                    <!-- LLM Integration -->
+                    <section id="llm" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-signal/20 border border-signal flex items-center justify-center text-signal font-bold">06</div>
+                            <h2 class="font-display text-2xl text-chrome">LLM integration</h2>
+                        </div>
+
+                        <p class="text-gray-400 mb-6">
+                            Process scraped content with local LLMs via Ollama. Summarize articles, extract entities, classify content—all without API costs.
+                        </p>
+
+                        <div class="code-block mb-6">
+                            <div class="bg-surface border-b border-white/10 px-4 py-2">
+                                <span class="text-xs text-gray-500">Setup Ollama</span>
+                            </div>
+                            <pre class="p-4 text-sm text-gray-300"><code><span class="text-gray-500"># Install Ollama from ollama.ai, then:</span>
+ollama pull qwen2.5:0.5b  <span class="text-gray-500"># 400MB, good for low-memory</span>
+ollama pull llama3:8b     <span class="text-gray-500"># Better quality, needs 8GB+ RAM</span></code></pre>
+                        </div>
+
+                        <div class="code-block">
+                            <div class="bg-surface border-b border-white/10 px-4 py-2">
+                                <span class="text-xs text-gray-500">Python usage</span>
+                            </div>
+                            <pre class="p-4 text-sm text-gray-300"><code><span class="syntax-keyword">from</span> core.llm <span class="syntax-keyword">import</span> get_llm_service
+
+llm = <span class="syntax-func">get_llm_service</span>()
+
+<span class="text-gray-500"># Summarize content</span>
+summary = llm.<span class="syntax-func">summarize</span>(article_text)
+
+<span class="text-gray-500"># Extract entities</span>
+entities = llm.<span class="syntax-func">extract_entities</span>(text)
+<span class="text-gray-500"># Returns: {"people": [...], "organizations": [...], "dates": [...]}</span>
+
+<span class="text-gray-500"># Classify content</span>
+category = llm.<span class="syntax-func">classify</span>(text, [<span class="syntax-string">"news"</span>, <span class="syntax-string">"opinion"</span>, <span class="syntax-string">"analysis"</span>])</code></pre>
+                        </div>
+                    </section>
+
+                    <!-- Video Transcription -->
+                    <section id="video" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-signal/20 border border-signal flex items-center justify-center text-signal font-bold">07</div>
+                            <h2 class="font-display text-2xl text-chrome">Video transcription</h2>
+                        </div>
+
+                        <p class="text-gray-400 mb-6">
+                            Extract and transcribe videos from YouTube, Twitter/X, TikTok, and 1000+ platforms using yt-dlp and Whisper.
+                        </p>
+
+                        <div class="bg-panel border border-white/10 p-6 mb-6">
+                            <h3 class="font-display text-lg text-acid mb-4">Supported platforms</h3>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">YouTube</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">Vimeo</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">Twitter/X</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">TikTok</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">Facebook</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">Instagram</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">Twitch</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10">Dailymotion</span>
+                                <span class="px-2 py-1 bg-white/5 border border-white/10 text-gray-500">+1000 more</span>
+                            </div>
+                        </div>
+
+                        <div class="code-block">
+                            <div class="bg-surface border-b border-white/10 px-4 py-2">
+                                <span class="text-xs text-gray-500">Python usage</span>
+                            </div>
+                            <pre class="p-4 text-sm text-gray-300"><code><span class="syntax-keyword">from</span> core.scraping.fetchers.video_fetcher <span class="syntax-keyword">import</span> VideoFetcher
+
+fetcher = <span class="syntax-func">VideoFetcher</span>(
+    whisper_model=<span class="syntax-string">"tiny"</span>,   <span class="text-gray-500"># tiny, base, small, medium, large</span>
+    use_2x_speed=<span class="syntax-keyword">True</span>        <span class="text-gray-500"># Halves transcription time</span>
+)
+
+result = fetcher.<span class="syntax-func">fetch</span>(<span class="syntax-string">"https://youtube.com/watch?v=..."</span>)
+
+<span class="text-gray-500"># Access results</span>
+print(result.transcript)       <span class="text-gray-500"># Plain text</span>
+print(result.<span class="syntax-func">to_srt</span>())        <span class="text-gray-500"># SRT subtitles</span>
+print(result.metadata.title)   <span class="text-gray-500"># Video metadata</span></code></pre>
+                        </div>
+                    </section>
+
+                    <!-- Export Options -->
+                    <section id="export" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-chrome/20 border border-chrome flex items-center justify-center text-chrome font-bold">08</div>
+                            <h2 class="font-display text-2xl text-chrome">Export options</h2>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-panel border border-white/10 p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <i data-lucide="database" class="w-6 h-6 text-acid"></i>
+                                    <h3 class="font-display text-lg text-chrome">SQLite (default)</h3>
+                                </div>
+                                <p class="text-sm text-gray-400 mb-4">
+                                    All results are automatically stored in a local SQLite database at <code class="text-xs bg-surface px-1">data/scrapefruit.db</code>.
+                                </p>
+                                <p class="text-xs text-gray-500">No configuration required.</p>
+                            </div>
+
+                            <div class="bg-panel border border-white/10 p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <i data-lucide="table" class="w-6 h-6 text-acid"></i>
+                                    <h3 class="font-display text-lg text-chrome">Google Sheets</h3>
+                                </div>
+                                <p class="text-sm text-gray-400 mb-4">
+                                    Export results directly to Google Sheets for collaboration and analysis.
+                                </p>
+                                <p class="text-xs text-gray-500">Requires service account credentials.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Troubleshooting -->
+                    <section id="troubleshooting" class="scroll-mt-28">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 bg-signal/20 border border-signal flex items-center justify-center text-signal font-bold">09</div>
+                            <h2 class="font-display text-2xl text-chrome">Troubleshooting</h2>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="accordion-item" onclick="toggleAccordion(this)">
+                                <div class="accordion-header">
+                                    <span class="font-display text-chrome">Playwright browser errors</span>
+                                    <i data-lucide="chevron-down" class="accordion-icon w-5 h-5 text-gray-500"></i>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="p-6 border-t border-white/10 text-sm text-gray-400">
+                                        <p class="mb-2">Reinstall the browser binaries:</p>
+                                        <code class="block bg-surface p-2 text-chrome">playwright install chromium</code>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" onclick="toggleAccordion(this)">
+                                <div class="accordion-header">
+                                    <span class="font-display text-chrome">Still getting blocked</span>
+                                    <i data-lucide="chevron-down" class="accordion-icon w-5 h-5 text-gray-500"></i>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="p-6 border-t border-white/10 text-sm text-gray-400">
+                                        <ul class="space-y-1">
+                                            <li>• Increase delays between requests in job settings</li>
+                                            <li>• Enable cascade mode to try alternative fetchers</li>
+                                            <li>• Check if the site requires login (poison pill detector will flag this)</li>
+                                            <li>• Consider using residential proxies for heavy scraping</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" onclick="toggleAccordion(this)">
+                                <div class="accordion-header">
+                                    <span class="font-display text-chrome">Ollama not detected</span>
+                                    <i data-lucide="chevron-down" class="accordion-icon w-5 h-5 text-gray-500"></i>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="p-6 border-t border-white/10 text-sm text-gray-400">
+                                        <p class="mb-2">Make sure Ollama is running:</p>
+                                        <code class="block bg-surface p-2 text-chrome mb-2">ollama serve</code>
+                                        <p>The service auto-detects Ollama at <code class="text-chrome">localhost:11434</code>. Set <code class="text-chrome">OLLAMA_BASE_URL</code> in .env if using a different host.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" onclick="toggleAccordion(this)">
+                                <div class="accordion-header">
+                                    <span class="font-display text-chrome">Video transcription fails</span>
+                                    <i data-lucide="chevron-down" class="accordion-icon w-5 h-5 text-gray-500"></i>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="p-6 border-t border-white/10 text-sm text-gray-400">
+                                        <ul class="space-y-1">
+                                            <li>• Ensure yt-dlp is installed: <code class="text-chrome">pip install yt-dlp</code></li>
+                                            <li>• Ensure faster-whisper is installed: <code class="text-chrome">pip install faster-whisper</code></li>
+                                            <li>• For 2x speed processing, install ffmpeg</li>
+                                            <li>• Try a smaller Whisper model if running out of memory</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="py-12 px-6 border-t border-white/10 mt-16">
+            <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-acid text-black flex items-center justify-center font-bold text-lg clip-notch">🍋</div>
+                    <span class="font-display text-chrome">SCRAPEFRUIT</span>
+                </div>
+
+                <div class="flex items-center gap-6 text-sm text-gray-500">
+                    <a href="https://github.com/jamditis/scrapefruit" target="_blank" class="hover:text-chrome transition-colors">GitHub</a>
+                    <a href="../updates/" class="hover:text-chrome transition-colors">Changelog</a>
+                    <a href="../about/" class="hover:text-chrome transition-colors">About</a>
+                </div>
+
+                <div class="text-xs text-gray-600 font-mono">
+                    STATUS: <span class="text-acid">OPERATIONAL</span>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        function toggleAccordion(item) {
+            item.classList.toggle('active');
+        }
+
+        // Mobile menu
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileClose = document.getElementById('mobile-close');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileToggle?.addEventListener('click', () => mobileMenu.classList.add('active'));
+        mobileClose?.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        mobileMenu?.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        });
+    </script>
+</body>
+</html>
