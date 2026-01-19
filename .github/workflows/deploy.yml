@@ -1,4 +1,4 @@
-name: Deploy to DigitalOcean
+name: Deploy to Raspberry Pi
 
 on:
   push:
@@ -8,51 +8,25 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 159.65.34.82
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            set -e  # Exit on any error
+      - name: Deploy to Pi
+        run: |
+          set -e  # Exit on any error
 
-            # Clone repo if it doesn't exist, otherwise pull
-            if [ ! -d "/opt/scrapefruit/.git" ]; then
-              echo "Cloning repository..."
-              rm -rf /opt/scrapefruit
-              git clone https://github.com/jamditis/scrapefruit.git /opt/scrapefruit
-            else
-              echo "Pulling latest changes..."
-              cd /opt/scrapefruit
-              git fetch origin
-              git reset --hard origin/master
-            fi
+          echo "Deploying to Raspberry Pi..."
 
-            cd /opt/scrapefruit
+          # SSH to Pi and deploy
+          ssh jamditis@houseofjawn.local << 'ENDSSH'
+            set -e
+            cd /home/jamditis/projects/scrapefruit
 
-            # Create venv if it doesn't exist
-            if [ ! -d "venv" ]; then
-              echo "Creating virtual environment..."
-              python3 -m venv venv
-            fi
+            echo "Pulling latest changes..."
+            git fetch origin
+            git reset --hard origin/master
 
-            source venv/bin/activate
-            pip install -r requirements.txt --quiet
-
-            # Configure nginx for larger uploads if nginx is present
-            if command -v nginx &> /dev/null; then
-              echo "Configuring nginx for larger uploads..."
-              # Add client_max_body_size to nginx config if not present
-              if ! grep -q "client_max_body_size" /etc/nginx/nginx.conf 2>/dev/null; then
-                sed -i '/http {/a \    client_max_body_size 50M;' /etc/nginx/nginx.conf
-                nginx -t && systemctl reload nginx
-              fi
-            fi
-
-            # Restart service
-            systemctl restart scrapefruit
+            echo "Restarting service..."
+            sudo systemctl restart scrapefruit
 
             echo "Deployed successfully at $(date)"
+          ENDSSH
