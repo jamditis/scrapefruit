@@ -138,7 +138,9 @@ def _pad_content(base_html, padding_text=None):
         <p>This is additional content to ensure we meet the minimum word count requirement.
         The poison pill detector requires at least 50 words and 500 characters before it will
         check for other types of issues. This paragraph provides that padding while still
-        allowing the specific poison pill pattern to be detected first in the check order.</p>
+        allowing the specific poison pill pattern to be detected first in the check order.
+        Adding more content here to ensure we definitely exceed the minimum threshold of
+        five hundred characters that the detector uses to identify content too short errors.</p>
         """
     # Insert before closing body tag
     return base_html.replace("</body>", padding_text + "</body>")
@@ -484,6 +486,11 @@ BOOKS_TO_SCRAPE_CATALOG_HTML = """
             </div>
         </div>
     </div>
+    <footer class="site-footer">
+        <p class="about">Welcome to our online bookstore where you can browse and purchase
+        a wide selection of books from various genres including fiction, non-fiction,
+        science, technology, and many more categories to choose from today.</p>
+    </footer>
 </div>
 </body>
 </html>
