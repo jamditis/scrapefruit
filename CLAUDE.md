@@ -1,5 +1,9 @@
 # Scrapefruit - Web scraping desktop application
 
+**Port:** 5150 | **Entry point:** `main.py` | **Tests:** 195+ | **DB:** SQLite
+
+---
+
 ## Project overview
 
 Scrapefruit is a Python desktop application for web scraping with a visual interface. It combines a pywebview GUI with a Flask backend, using Playwright for browser automation with stealth capabilities to bypass anti-bot detection.
