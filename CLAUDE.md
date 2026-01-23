@@ -46,6 +46,7 @@ scrapefruit/
 │   │   │   ├── browser_use_fetcher.py  # Browser-use AI integration
 │   │   │   └── video_fetcher.py        # yt-dlp + Whisper transcription
 │   │   ├── accessibility_analyzer.py   # Sample URL analysis with rule filtering
+│   │   ├── network_analyzer.py         # XHR/fetch capture for API discovery
 │   │   └── extractors/
 │   │       ├── __init__.py         # Extractor exports
 │   │       ├── css_extractor.py    # CSS selector extraction
@@ -360,6 +361,66 @@ report = generator.generate_analysis_report(samples, filtered_result)
 
 **API endpoint:**
 - `POST /api/scraping/generate-report` - Generate standalone reports
+
+### Network analyzer (API discovery)
+
+Many modern websites load data via XHR/fetch requests that are easier to scrape than parsing the DOM. The NetworkAnalyzer intercepts network traffic to discover these API endpoints:
+
+```python
+from core.scraping.network_analyzer import NetworkAnalyzer, capture_network
+
+# Quick capture
+result = capture_network("https://example.com", wait_time=5000)
+
+# Or with more control
+analyzer = NetworkAnalyzer()
+result = analyzer.capture(
+    url="https://example.com",
+    wait_time=5000,
+    wait_for_idle=True,
+    include_bodies=True,
+)
+
+# Get discovered endpoints
+for endpoint in result.api_endpoints:
+    print(f"{endpoint.url}")
+    print(f"  Data path: {endpoint.data_array_path}")
+    print(f"  Items: {endpoint.data_count}")
+    print(f"  Pagination: {endpoint.has_pagination}")
+```
+
+**Features:**
+- Intercepts XHR/fetch requests during page load via Playwright
+- Identifies JSON APIs, GraphQL endpoints, and data sources
+- Analyzes response structure to find data arrays and pagination
+- Aggregates endpoints across multiple sample URLs
+- Generates markdown reports for discovered APIs
+
+**API URL patterns detected:**
+
+| Pattern | Example |
+|---------|---------|
+| `/api/` | `https://example.com/api/users` |
+| `/v1/`, `/v2/` | `https://api.example.com/v1/data` |
+| `/graphql` | `https://example.com/graphql` |
+| `/_next/data/` | Next.js data fetching |
+| `/wp-json/` | WordPress REST API |
+| `.json` | `https://example.com/data.json` |
+
+**API endpoints:**
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/scraping/capture-network` | POST | Capture network traffic from single URL |
+| `/api/scraping/discover-apis` | POST | Discover APIs from multiple URLs |
+
+**Response includes:**
+- `api_endpoints` - Discovered API endpoints with metadata
+- `json_responses` - All JSON responses captured
+- `graphql_responses` - GraphQL-specific responses
+- `data_array_path` - Path to main data array (e.g., `data.items`)
+- `has_pagination` - Whether endpoint supports pagination
+- `sample_data_keys` - Top-level keys in response data
 
 ### Video transcription
 

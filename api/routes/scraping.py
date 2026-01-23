@@ -800,3 +800,292 @@ def fetch_accessibility():
             "url": url,
             "error": str(e),
         }), 500
+
+
+@scraping_bp.route("/capture-network", methods=["POST"])
+def capture_network():
+    """
+    Capture network traffic from a URL to discover API endpoints.
+
+    This intercepts XHR/fetch requests during page load to find JSON APIs,
+    GraphQL endpoints, and other data sources that may be easier to scrape
+    than parsing the rendered DOM.
+
+    Request JSON:
+        {
+            "url": "https://example.com",
+            "wait_time": 5000,  // Time to wait for network activity (ms)
+            "wait_for_idle": true,  // Wait for network to be idle
+            "include_bodies": true  // Include response bodies
+        }
+
+    Returns:
+        {
+            "success": true,
+            "url": "...",
+            "capture_time_ms": 5234,
+            "total_requests": 42,
+            "total_bytes": 123456,
+            "api_endpoints": [
+                {
+                    "url": "https://api.example.com/v1/data",
+                    "method": "GET",
+                    "content_type": "application/json",
+                    "is_json": true,
+                    "has_pagination": true,
+                    "data_array_path": "data.items",
+                    "data_count": 50
+                },
+                ...
+            ],
+            "json_responses": [...],
+            "graphql_responses": [...]
+        }
+    """
+    import traceback
+
+    try:
+        from core.scraping.network_analyzer import NetworkAnalyzer
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"Import error: {e}"}), 500
+
+    data = request.get_json()
+    url = data.get("url")
+    wait_time = data.get("wait_time", 5000)
+    wait_for_idle = data.get("wait_for_idle", True)
+    include_bodies = data.get("include_bodies", True)
+
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+
+    try:
+        analyzer = NetworkAnalyzer()
+        result = analyzer.capture(
+            url,
+            wait_time=wait_time,
+            wait_for_idle=wait_for_idle,
+            include_bodies=include_bodies,
+        )
+        analyzer.close()
+
+        return jsonify(result.to_dict())
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "url": url,
+            "error": str(e),
+        }), 500
+
+
+@scraping_bp.route("/discover-apis", methods=["POST"])
+def discover_apis():
+    """
+    Discover API endpoints from multiple URLs.
+
+    Captures network traffic from multiple sample URLs and aggregates
+    discovered API endpoints, ranking them by usefulness.
+
+    Request JSON:
+        {
+            "urls": ["https://example.com/page1", "https://example.com/page2"],
+            "wait_time": 5000,
+            "max_urls": 5,
+            "generate_report": false  // Include markdown report
+        }
+
+    Returns:
+        {
+            "success": true,
+            "urls_analyzed": 2,
+            "total_endpoints": 15,
+            "unique_endpoints": 8,
+            "endpoints": [
+                {
+                    "url": "https://api.example.com/v1/data",
+                    "found_in_urls": 2,
+                    "is_json": true,
+                    "has_pagination": true,
+                    "data_array_path": "results",
+                    "avg_data_count": 25
+                },
+                ...
+            ],
+            "report": "# API Discovery Report..."  // Only if generate_report=true
+        }
+    """
+    import traceback
+    from collections import defaultdict
+
+    try:
+        from core.scraping.network_analyzer import NetworkAnalyzer
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"Import error: {e}"}), 500
+
+    data = request.get_json()
+    urls = data.get("urls", [])
+    wait_time = data.get("wait_time", 5000)
+    max_urls = data.get("max_urls", 5)
+    generate_report = data.get("generate_report", False)
+
+    if not urls:
+        return jsonify({"error": "URLs are required"}), 400
+
+    urls = urls[:max_urls]
+
+    try:
+        analyzer = NetworkAnalyzer()
+        all_endpoints = defaultdict(lambda: {
+            "count": 0,
+            "data_counts": [],
+            "endpoint": None,
+        })
+        errors = []
+        total_endpoints = 0
+
+        for url in urls:
+            try:
+                result = analyzer.capture(url, wait_time=wait_time)
+                if result.success:
+                    for endpoint in result.api_endpoints:
+                        # Use base URL without query params as key
+                        base_url = endpoint.url.split("?")[0]
+                        all_endpoints[base_url]["count"] += 1
+                        all_endpoints[base_url]["data_counts"].append(endpoint.data_count)
+                        if all_endpoints[base_url]["endpoint"] is None:
+                            all_endpoints[base_url]["endpoint"] = endpoint
+                        total_endpoints += 1
+                else:
+                    errors.append({"url": url, "error": result.error})
+            except Exception as e:
+                errors.append({"url": url, "error": str(e)})
+
+        analyzer.close()
+
+        # Build aggregated endpoint list
+        aggregated = []
+        for base_url, info in all_endpoints.items():
+            endpoint = info["endpoint"]
+            if endpoint:
+                aggregated.append({
+                    "url": base_url,
+                    "full_url": endpoint.url,
+                    "method": endpoint.method,
+                    "content_type": endpoint.content_type,
+                    "is_json": endpoint.is_json,
+                    "is_graphql": endpoint.is_graphql,
+                    "has_pagination": endpoint.has_pagination,
+                    "data_array_path": endpoint.data_array_path,
+                    "found_in_urls": info["count"],
+                    "avg_data_count": sum(info["data_counts"]) / len(info["data_counts"]) if info["data_counts"] else 0,
+                    "sample_data_keys": endpoint.sample_data_keys,
+                })
+
+        # Sort by frequency and data count
+        aggregated.sort(key=lambda x: (x["found_in_urls"], x["avg_data_count"]), reverse=True)
+
+        response = {
+            "success": True,
+            "urls_analyzed": len(urls),
+            "total_endpoints": total_endpoints,
+            "unique_endpoints": len(aggregated),
+            "endpoints": aggregated,
+            "errors": errors,
+        }
+
+        # Generate report if requested
+        if generate_report:
+            report = _generate_api_discovery_report(urls, aggregated, errors)
+            response["report"] = report
+
+        return jsonify(response)
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _generate_api_discovery_report(
+    urls: list,
+    endpoints: list,
+    errors: list,
+) -> str:
+    """Generate markdown report for API discovery."""
+    from datetime import datetime
+
+    lines = [
+        "# API discovery report",
+        "",
+        f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"**URLs analyzed:** {len(urls)}",
+        f"**Unique endpoints found:** {len(endpoints)}",
+        "",
+        "---",
+        "",
+        "## Discovered API endpoints",
+        "",
+    ]
+
+    if not endpoints:
+        lines.append("*No API endpoints discovered.*")
+    else:
+        # Top endpoints
+        lines.append("### Top endpoints (by frequency and data volume)")
+        lines.append("")
+        lines.append("| Endpoint | Type | Found in | Avg items | Pagination |")
+        lines.append("|----------|------|----------|-----------|------------|")
+
+        for ep in endpoints[:15]:
+            ep_type = "GraphQL" if ep["is_graphql"] else "JSON" if ep["is_json"] else "Other"
+            pagination = "✓" if ep["has_pagination"] else "—"
+            url_display = ep["url"]
+            if len(url_display) > 50:
+                url_display = url_display[:47] + "..."
+            lines.append(
+                f"| `{url_display}` | {ep_type} | {ep['found_in_urls']} URLs | {ep['avg_data_count']:.0f} | {pagination} |"
+            )
+
+        if len(endpoints) > 15:
+            lines.append(f"\n*... and {len(endpoints) - 15} more endpoints*")
+
+        # Detailed info for top 5
+        lines.append("")
+        lines.append("### Endpoint details")
+        lines.append("")
+
+        for i, ep in enumerate(endpoints[:5]):
+            lines.append(f"#### {i + 1}. `{ep['url']}`")
+            lines.append("")
+            lines.append(f"- **Type:** {'GraphQL' if ep['is_graphql'] else 'JSON API' if ep['is_json'] else 'Other'}")
+            lines.append(f"- **Content-Type:** `{ep['content_type']}`")
+            lines.append(f"- **Data path:** `{ep['data_array_path'] or 'N/A'}`")
+            lines.append(f"- **Avg items:** {ep['avg_data_count']:.0f}")
+            lines.append(f"- **Has pagination:** {'Yes' if ep['has_pagination'] else 'No'}")
+
+            if ep["sample_data_keys"]:
+                keys = ", ".join(f"`{k}`" for k in ep["sample_data_keys"][:10])
+                lines.append(f"- **Sample keys:** {keys}")
+
+            lines.append("")
+
+    # Errors section
+    if errors:
+        lines.append("## Errors")
+        lines.append("")
+        for err in errors:
+            lines.append(f"- `{err['url']}`: {err['error']}")
+        lines.append("")
+
+    # Next steps
+    lines.append("---")
+    lines.append("")
+    lines.append("## Next steps")
+    lines.append("")
+    lines.append("1. **Test endpoints directly** - Try calling the discovered APIs in your browser or with curl")
+    lines.append("2. **Check authentication** - Some endpoints may require cookies or auth headers")
+    lines.append("3. **Look for pagination** - If an endpoint has pagination, you may need to loop through pages")
+    lines.append("4. **Use the data path** - The `data_array_path` tells you where the main data array is in the response")
+    lines.append("")
+
+    return "\n".join(lines)
