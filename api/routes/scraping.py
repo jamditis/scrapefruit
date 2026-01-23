@@ -113,8 +113,12 @@ def fetch_html():
 def fetch_samples():
     """
     Fetch HTML from URLs for sample analysis.
-    Uses SingleFile CLI if available, falls back to Playwright/HTTP.
-    Returns the HTML content directly for the analyzer.
+
+    Options:
+        quick_mode: If true, use HTTP-only fetching (faster, bypasses Cloudflare timeout)
+                    Default is true to avoid timeouts through Cloudflare Tunnel.
+        use_playwright: If true, use full cascade with Playwright (slower but handles JS).
+                        Only use for sites that require JavaScript rendering.
     """
     import subprocess
     import shutil
@@ -122,6 +126,9 @@ def fetch_samples():
 
     data = request.get_json()
     urls = data.get("urls", [])
+    # Default to quick mode to avoid Cloudflare timeout
+    quick_mode = data.get("quick_mode", True)
+    use_playwright = data.get("use_playwright", False)
 
     if not urls:
         return jsonify({"error": "No URLs provided"}), 400
@@ -139,8 +146,18 @@ def fetch_samples():
         try:
             html = None
 
-            # Try SingleFile first if available
-            if singlefile_path:
+            # Quick mode: HTTP-only fetching (fast, avoids Cloudflare timeout)
+            if quick_mode and not use_playwright:
+                engine = get_engine()
+                result = engine.fetch_page(url, force_method="http", timeout=30000)
+                html = result.get("html", "")
+                if result.get("error"):
+                    errors.append({"url": url, "error": result.get("error"), "fallback": True})
+                    # Continue to try other methods if HTTP fails
+                    html = None
+
+            # Try SingleFile if quick_mode didn't get content (or wasn't used)
+            if not html and singlefile_path and not quick_mode:
                 try:
                     result = subprocess.run(
                         [singlefile_path, url, "--dump-content"],
@@ -153,8 +170,8 @@ def fetch_samples():
                 except (subprocess.TimeoutExpired, Exception) as e:
                     print(f"SingleFile failed for {url}: {e}")
 
-            # Fall back to scraping engine
-            if not html:
+            # Fall back to full scraping engine (with Playwright)
+            if not html and (use_playwright or not quick_mode):
                 engine = get_engine()
                 result = engine.fetch_page(url)
                 html = result.get("html", "")
@@ -177,7 +194,9 @@ def fetch_samples():
         "samples": samples,
         "errors": errors,
         "fetched_count": len(samples),
-        "error_count": len(errors)
+        "error_count": len(errors),
+        "mode": "quick_http" if quick_mode and not use_playwright else "full_playwright",
+        "note": "Using quick HTTP mode. Pass use_playwright=true for JS-heavy sites." if quick_mode else None
     })
 
 
