@@ -105,3 +105,49 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")  # tiny, base, small, medium,
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")  # cpu, cuda, auto
 WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")  # int8, float16, float32
 VIDEO_USE_2X_SPEED = os.getenv("VIDEO_USE_2X_SPEED", "true").lower() == "true"  # Faster transcription
+
+
+def _detect_chromium_path() -> str | None:
+    """
+    Auto-detect system Chromium executable path.
+
+    On ARM64 Linux (Raspberry Pi), Playwright's bundled Chromium doesn't work,
+    so we need to use the system snap Chromium instead.
+
+    Returns:
+        Path to Chromium executable, or None to use Playwright's bundled version.
+    """
+    import platform
+    import shutil
+
+    # Check if user specified a path
+    user_path = os.getenv("CHROMIUM_EXECUTABLE_PATH")
+    if user_path and os.path.exists(user_path):
+        return user_path
+
+    # Only needed on ARM64 Linux where Playwright's Chromium doesn't work
+    if platform.machine() not in ("aarch64", "arm64"):
+        return None  # Use Playwright's bundled Chromium
+
+    # Check for snap Chromium (common on Ubuntu ARM64)
+    snap_chromium = "/snap/chromium/current/usr/lib/chromium-browser/chrome"
+    if os.path.exists(snap_chromium):
+        return snap_chromium
+
+    # Check for system chromium-browser
+    chromium_paths = [
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        shutil.which("chromium-browser"),
+        shutil.which("chromium"),
+    ]
+
+    for path in chromium_paths:
+        if path and os.path.exists(path):
+            return path
+
+    return None
+
+
+# Chromium executable path (auto-detected for ARM64 compatibility)
+CHROMIUM_EXECUTABLE_PATH = _detect_chromium_path()

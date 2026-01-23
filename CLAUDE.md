@@ -42,9 +42,10 @@ scrapefruit/
 │   │   │   ├── http_fetcher.py         # Basic HTTP requests
 │   │   │   ├── playwright_fetcher.py   # Playwright with stealth
 │   │   │   ├── puppeteer_fetcher.py    # Pyppeteer alternative
-│   │   │   ├── agent_browser_fetcher.py # Agent-browser CLI wrapper
+│   │   │   ├── agent_browser_fetcher.py # Accessibility tree extraction via Playwright
 │   │   │   ├── browser_use_fetcher.py  # Browser-use AI integration
 │   │   │   └── video_fetcher.py        # yt-dlp + Whisper transcription
+│   │   ├── accessibility_analyzer.py   # Sample URL analysis with rule filtering
 │   │   └── extractors/
 │   │       ├── __init__.py         # Extractor exports
 │   │       ├── css_extractor.py    # CSS selector extraction
@@ -60,6 +61,7 @@ scrapefruit/
 │   │   ├── orchestrator.py # Job lifecycle management
 │   │   └── worker.py       # Background job worker
 │   └── output/
+│       ├── report_generator.py      # Markdown report generation
 │       └── formatters/
 │           └── sheets_formatter.py  # Google Sheets output
 ├── database/
@@ -258,6 +260,106 @@ The engine implements a two-phase extraction strategy:
 ### User agent rotation
 
 Built-in user agent rotation with modern browser strings for Chrome, Firefox, Safari, and Edge.
+
+### Accessibility analyzer
+
+The AccessibilityAnalyzer provides intelligent rule suggestion by analyzing sample URLs before scraping:
+
+```python
+from core.scraping.accessibility_analyzer import AccessibilityAnalyzer
+
+analyzer = AccessibilityAnalyzer()
+
+# Fetch and analyze sample URLs
+samples, errors = analyzer.fetch_samples(
+    ["https://example.com/page1", "https://example.com/page2"],
+    timeout=45000,
+    use_singlefile=False  # Optional: flatten pages for stable extraction
+)
+
+# Get rule suggestions
+suggestions = analyzer.analyze_combined(samples)
+
+# Filter rules by user intent
+result = analyzer.smart_filter(suggestions, "I want article titles and authors")
+print(f"Filtered {result.total_rules_before} → {result.total_rules_after} rules")
+```
+
+**Features:**
+- Accessibility tree extraction via Playwright's `aria_snapshot()` API
+- Combined analysis with HTMLAnalyzer for comprehensive rule detection
+- SingleFile CLI integration for page flattening (stable extraction)
+- Smart filtering with tiered approach (presets → keywords → LLM)
+
+**Content presets:** Quick filters for common scraping targets:
+
+| Preset | Description |
+|--------|-------------|
+| `articles` | Titles, authors, dates, body text |
+| `media` | Images, videos, audio, galleries |
+| `data` | Tables, lists, stats, numbers |
+| `products` | Names, prices, descriptions, reviews |
+| `contact` | Emails, phones, social links |
+| `navigation` | Menus, links, buttons |
+| `forms` | Inputs, dropdowns, buttons |
+| `lists` | Bullet points, item collections |
+| `all_content` | Combined articles + media + data |
+
+**API endpoints:**
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/scraping/filter-presets` | GET | Get available presets |
+| `/api/scraping/filter-rules` | POST | Filter rules by preset/keywords/intent |
+| `/api/scraping/analyze-and-filter` | POST | Fetch + analyze + filter in one call |
+| `/api/scraping/analyze-accessibility` | POST | Analyze URLs with accessibility tree |
+
+### Report generation
+
+Generate human-readable markdown reports from scrape job results:
+
+```python
+from core.output import ReportGenerator, generate_job_report
+
+# Generate job completion report
+report = generate_job_report(job, urls, results)
+
+# Or use the class directly
+generator = ReportGenerator()
+report = generator.generate_analysis_report(samples, filtered_result)
+```
+
+**Report types:**
+
+| Type | Purpose |
+|------|---------|
+| `job` | Job completion report with success/failure stats |
+| `analysis` | Rule suggestions report with sample info |
+| `errors` | Concise error summary for debugging |
+
+**Job report includes:**
+- Success/failure statistics with visual indicators (✅⚠️🟡❌)
+- Issue categorization with plain-language explanations
+- Fetcher performance breakdown
+- Data preview section
+- Actionable suggestions for each issue type
+
+**Issue categories with explanations:**
+
+| Category | Explanation |
+|----------|-------------|
+| `timeout` | Page took too long to load |
+| `blocked` | Website blocked automated access |
+| `403` | Access forbidden (may need auth) |
+| `404` | Page doesn't exist |
+| `connection` | Could not connect to server |
+| `ssl` | Security certificate problem |
+| `empty` | No extractable content found |
+| `parse` | Could not parse page content |
+| `rate_limit` | Website limiting requests |
+
+**API endpoint:**
+- `POST /api/scraping/generate-report` - Generate standalone reports
 
 ### Video transcription
 

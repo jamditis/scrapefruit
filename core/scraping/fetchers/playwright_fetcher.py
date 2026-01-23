@@ -52,9 +52,11 @@ class PlaywrightFetcher:
         """Ensure browser is initialized."""
         if self.browser is None:
             playwright = await async_playwright().start()
-            self.browser = await playwright.chromium.launch(
-                headless=True,
-                args=[
+
+            # Build launch options
+            launch_options = {
+                "headless": True,
+                "args": [
                     "--disable-blink-features=AutomationControlled",
                     "--disable-features=IsolateOrigins,site-per-process",
                     "--no-sandbox",
@@ -63,7 +65,14 @@ class PlaywrightFetcher:
                     "--disable-accelerated-2d-canvas",
                     "--disable-gpu",
                 ],
-            )
+            }
+
+            # Use system Chromium on ARM64 where Playwright's bundled version doesn't work
+            chromium_path = getattr(config, "CHROMIUM_EXECUTABLE_PATH", None)
+            if chromium_path:
+                launch_options["executable_path"] = chromium_path
+
+            self.browser = await playwright.chromium.launch(**launch_options)
 
     async def _get_context(self) -> BrowserContext:
         """Get or create a browser context with stealth settings."""
