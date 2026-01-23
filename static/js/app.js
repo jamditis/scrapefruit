@@ -52,12 +52,19 @@ const App = {
     },
 
     setupNavigation() {
-        const navItems = document.querySelectorAll('.nav-item');
+        const navItems = document.querySelectorAll('.nav-item[data-view]');
         const views = document.querySelectorAll('.view');
 
         navItems.forEach(item => {
             item.addEventListener('click', () => {
                 const viewName = item.dataset.view;
+                const viewElement = document.getElementById(`view-${viewName}`);
+
+                // Skip if view doesn't exist
+                if (!viewElement) {
+                    console.warn(`View not found: view-${viewName}`);
+                    return;
+                }
 
                 // Update nav active state
                 navItems.forEach(n => n.classList.remove('active'));
@@ -65,7 +72,7 @@ const App = {
 
                 // Update view visibility
                 views.forEach(v => v.classList.remove('active'));
-                document.getElementById(`view-${viewName}`).classList.add('active');
+                viewElement.classList.add('active');
 
                 State.set('currentView', viewName);
 
