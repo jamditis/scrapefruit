@@ -1,0 +1,22 @@
+# Scrapefruit
+
+> Desktop web scraping platform with visual scraping and anti-bot bypass.
+
+URL: https://jamditis.github.io/scrapefruit/
+Author: Joe Amditis
+License: MIT
+Repository: https://github.com/jamditis/scrapefruit
+
+Scrapefruit is a Python web application for web scraping with a visual
+interface. It features a multi-method cascade scraping system that automatically
+falls back between scraping methods when one fails or content is blocked.
+
+Key features:
+- Cascade scraping: HTTP, Playwright, Puppeteer, Agent-browser, Browser-use
+- Anti-bot bypass with Playwright-stealth for Cloudflare, CAPTCHAs, rate limiting
+- Poison pill detection for paywalls, dead links, and login walls
+- Local LLM integration via Ollama for summarization and entity extraction
+- Video transcription from YouTube, Twitter/X, TikTok via yt-dlp and Whisper
+- Vision/OCR fallback using Tesseract when DOM extraction fails
+- Google Sheets export and markdown report generation
+- 195+ tests covering unit, integration, and stress scenarios
